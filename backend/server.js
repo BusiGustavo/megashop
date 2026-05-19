@@ -27,7 +27,7 @@ app.use("/", express.static("../html"))
 app.get("/", (req, res) => {
     fs.readFile("../html/index.html", (error, file) => {
         res.writeHead(200, {"Content-Type": "text/html"})
-        res.end(file)
+        res.end("hello")
     })
 })
 
