@@ -175,10 +175,10 @@ app.post("/api/login", async (req, res) => {
 });
 
 // PRODUCTS
-app.get("/api/products", (req, res) => {
-    const products = db.prepare("SELECT * FROM products").all();
-    res.json(products);
-});
+// app.get("/api/products", (req, res) => {
+//     const products = db.prepare("SELECT * FROM products").all();
+//     res.json(products);
+// });
 
 // ADD PRODUCT
 app.post("/api/products", (req, res) => {
