@@ -19,9 +19,9 @@ const transporter = nodemailer.createTransport({
 
 app.use(cors());
 app.use(express.json());
-app.use("/css", express.static("../css"))
-app.use("/js", express.static("../js"))
-app.use("/", express.static("../html"))
+app.use("/css", express.static("css"))
+app.use("/js", express.static("js"))
+app.use("/", express.static("html"))
 
 // const db = new Database("magazin.db");
 
@@ -175,10 +175,10 @@ app.post("/api/login", async (req, res) => {
 });
 
 // PRODUCTS
-// app.get("/api/products", (req, res) => {
-//     const products = db.prepare("SELECT * FROM products").all();
-//     res.json(products);
-// });
+app.get("/api/products", (req, res) => {
+    const products = db.prepare("SELECT * FROM products").all();
+    res.json(products);
+});
 
 // ADD PRODUCT
 app.post("/api/products", (req, res) => {
