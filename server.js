@@ -139,12 +139,12 @@ CREATE TABLE IF NOT EXISTS reviews (
 // ADMIN DEFAULT
 const adminPasswordHash = bcrypt.hashSync("1", 10);
 
-// db.prepare("DELETE FROM users WHERE role = 'admin'").run();
-//
-// db.prepare(`
-// INSERT INTO users (name, email, password, phone, role)
-// VALUES (?, ?, ?, ?, ?)
-// `).run("Administrator", "1", adminPasswordHash, "0700000000", "admin");
+db.prepare("DELETE FROM users WHERE role = 'admin'").run();
+
+db.prepare(`
+INSERT INTO users (name, email, password, phone, role)
+VALUES (?, ?, ?, ?, ?)
+`).run("Administrator", "1", adminPasswordHash, "0700000000", "admin");
 
 console.log("ADMIN CREAT CU 1 / 1");
 
