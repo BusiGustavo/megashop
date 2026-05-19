@@ -22,7 +22,7 @@ app.use("/css", express.static("../css"))
 app.use("/js", express.static("../js"))
 app.use("/", express.static("../html"))
 
-const db = new Database("magazin.db");
+// const db = new Database("magazin.db");
 
 app.get("/", (req, res) => {
     fs.readFile("../html/index.html", (error, file) => {
@@ -32,114 +32,114 @@ app.get("/", (req, res) => {
 })
 
 // USERS
-db.exec(`
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    email TEXT UNIQUE,
-    password TEXT,
-    phone TEXT,
-    role TEXT
-);
-`);
+// db.exec(`
+// CREATE TABLE IF NOT EXISTS users (
+//     id INTEGER PRIMARY KEY AUTOINCREMENT,
+//     name TEXT,
+//     email TEXT UNIQUE,
+//     password TEXT,
+//     phone TEXT,
+//     role TEXT
+// );
+// `);
 
 // PRODUCTS
-db.exec(`
-CREATE TABLE IF NOT EXISTS products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    price REAL,
-    oldPrice REAL,
-    image TEXT,
-    description TEXT,
-    longDescription TEXT,
-    category TEXT,
-    stock INTEGER,
-    rating INTEGER
-);
-`);
+// db.exec(`
+// CREATE TABLE IF NOT EXISTS products (
+//     id INTEGER PRIMARY KEY AUTOINCREMENT,
+//     name TEXT,
+//     price REAL,
+//     oldPrice REAL,
+//     image TEXT,
+//     description TEXT,
+//     longDescription TEXT,
+//     category TEXT,
+//     stock INTEGER,
+//     rating INTEGER
+// );
+// `);
 
 // FAVORITES
-db.exec(`
-CREATE TABLE IF NOT EXISTS favorites (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    product_id INTEGER
-);
-`);
+// db.exec(`
+// CREATE TABLE IF NOT EXISTS favorites (
+//     id INTEGER PRIMARY KEY AUTOINCREMENT,
+//     user_id INTEGER,
+//     product_id INTEGER
+// );
+// `);
 
 // CART
-db.exec(`
-CREATE TABLE IF NOT EXISTS cart (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    product_id INTEGER,
-    quantity INTEGER
-);
-`);
+// db.exec(`
+// CREATE TABLE IF NOT EXISTS cart (
+//     id INTEGER PRIMARY KEY AUTOINCREMENT,
+//     user_id INTEGER,
+//     product_id INTEGER,
+//     quantity INTEGER
+// );
+// `);
 
 // ORDERS
-db.exec(`
-CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    email TEXT,
-    fullName TEXT,
-    county TEXT,
-    city TEXT,
-    address TEXT,
-    phone TEXT,
-    payment TEXT,
-    notes TEXT,
-    total REAL,
-    status TEXT DEFAULT 'Nouă',
-    created_at TEXT
-);
-`);
+// db.exec(`
+// CREATE TABLE IF NOT EXISTS orders (
+//     id INTEGER PRIMARY KEY AUTOINCREMENT,
+//     user_id INTEGER,
+//     email TEXT,
+//     fullName TEXT,
+//     county TEXT,
+//     city TEXT,
+//     address TEXT,
+//     phone TEXT,
+//     payment TEXT,
+//     notes TEXT,
+//     total REAL,
+//     status TEXT DEFAULT 'Nouă',
+//     created_at TEXT
+// );
+// `);
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS order_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_id INTEGER,
-    product_id INTEGER,
-    product_name TEXT,
-    product_image TEXT,
-    price REAL,
-    quantity INTEGER
-);
-`);
+// db.exec(`
+// CREATE TABLE IF NOT EXISTS order_items (
+//     id INTEGER PRIMARY KEY AUTOINCREMENT,
+//     order_id INTEGER,
+//     product_id INTEGER,
+//     product_name TEXT,
+//     product_image TEXT,
+//     price REAL,
+//     quantity INTEGER
+// );
+// `);
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS password_resets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    token TEXT UNIQUE,
-    expires_at INTEGER
-);
-`);
+// db.exec(`
+// CREATE TABLE IF NOT EXISTS password_resets (
+//     id INTEGER PRIMARY KEY AUTOINCREMENT,
+//     user_id INTEGER,
+//     token TEXT UNIQUE,
+//     expires_at INTEGER
+// );
+// `);
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS reviews (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    product_id INTEGER,
-    user_id INTEGER,
-    user_name TEXT,
-    rating INTEGER,
-    comment TEXT,
-    created_at TEXT
-);
-`);
+// db.exec(`
+// CREATE TABLE IF NOT EXISTS reviews (
+//     id INTEGER PRIMARY KEY AUTOINCREMENT,
+//     product_id INTEGER,
+//     user_id INTEGER,
+//     user_name TEXT,
+//     rating INTEGER,
+//     comment TEXT,
+//     created_at TEXT
+// );
+// `);
 
 
 // ADMIN DEFAULT
 const adminPasswordHash = bcrypt.hashSync("1", 10);
 
-db.prepare("DELETE FROM users WHERE role = 'admin'").run();
+// db.prepare("DELETE FROM users WHERE role = 'admin'").run();
 
-db.prepare(`
-INSERT INTO users (name, email, password, phone, role)
-VALUES (?, ?, ?, ?, ?)
-`).run("Administrator", "1", adminPasswordHash, "0700000000", "admin");
+// db.prepare(`
+// INSERT INTO users (name, email, password, phone, role)
+// VALUES (?, ?, ?, ?, ?)
+// `).run("Administrator", "1", adminPasswordHash, "0700000000", "admin");
 
 console.log("ADMIN CREAT CU 1 / 1");
 
