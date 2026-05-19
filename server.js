@@ -19,10 +19,13 @@ const transporter = nodemailer.createTransport({
 
 app.use(cors());
 app.use(express.json());
-app.use("/css", express.static("css"))
-app.use("/js", express.static("./js"))
-app.use("/", express.static("./html"))
-
+app.use("/css", express.static(path.join(process.cwd(), "css")))
+app.use("/js", express.static(path.join(process.cwd(), "js")))
+app.use("/", express.static(path.join(process.cwd(), "html")))
+app.use((req, res, next) => {
+    console.log(`Incoming request for ${req.originalUrl}`);
+    next();
+});
 // const db = new Database("magazin.db");
 
 app.get("/", (req, res) => {
