@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>Finalizare comandă - MegaShop</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="top-bar">
+    <div class="logo">Mega<span>Shop</span></div>
+    <div class="user-actions">
+        <a href="index.html">Acasă</a>
+        <a href="cos.html">Coș</a>
+    </div>
+</header>
+
+<section class="checkout-page">
+    <h2>Finalizare comandă</h2>
+
+    <div class="checkout-layout">
+        <div class="checkout-form">
+            <h3>Date livrare</h3>
+
+            <input type="text" id="fullName" placeholder="Nume complet">
+            <input type="email" id="email" placeholder="Email">
+            <input type="text" id="county" placeholder="Județ">
+            <input type="text" id="city" placeholder="Oraș / Comună">
+            <input type="text" id="address" placeholder="Adresă completă">
+            <input type="text" id="postalCode" placeholder="Cod poștal">
+            <input type="text" id="phone" placeholder="Telefon">
+
+            <select id="payment">
+                <option value="">Alege metoda de plată</option>
+                <option value="Ramburs">Ramburs</option>
+                <option value="Card online">Card online</option>
+            </select>
+
+            <textarea id="notes" placeholder="Observații pentru comandă"></textarea>
+
+            <button onclick="placeOrder()">Plasează comanda</button>
+        </div>
+
+        <div class="checkout-summary">
+            <h3>Sumar comandă</h3>
+            <div id="checkoutItems"></div>
+            <h2 id="checkoutTotal">Total: 0 lei</h2>
+        </div>
+    </div>
+</section>
+
+<script>
+const API = "http://localhost:3000/api";
+let currentUser = JSON.parse(localStorage.getItem("currentUser"));
+let cart = [];
+
+if (!currentUser || !currentUser.id) {
+    alert("Trebuie să fii logat!");
+    window.location.href = "login.html";
+}
+
+async function loadCheckoutCart() {
+    const res = await fetch(`${API}/cart/${currentUser.id}`);
+    cart = await res.json();
+
+    const box = document.getElementById("checkoutItems");
+    const totalBox = document.getElementById("checkoutTotal");
+
+    box.innerHTML = "";
+    let total = 0;
+
+    if (cart.length === 0) {
+        box.innerHTML = "<p>Coșul este gol.</p>";
+        totalBox.innerText = "Total: 0 lei";
+        return;
+    }
+
+    cart.forEach(product => {
+        total += product.price * product.quantity;
+
+        box.innerHTML += `
+            <div class="checkout-item">
+                <img src="${product.image}">
+                <div>
+                    <h4>${product.name}</h4>
+                    <p>${product.quantity} x ${product.price} lei</p>
+                </div>
+                <strong>${product.price * product.quantity} lei</strong>
+            </div>
+        `;
+    });
+
+    totalBox.innerText = "Total: " + total + " lei";
+}
+
+async function placeOrder() {
+    let fullName = document.getElementById("fullName").value;
+    let email = document.getElementById("email").value;
+    let county = document.getElementById("county").value;
+    let city = document.getElementById("city").value;
+    let address = document.getElementById("address").value;
+    let postalCode = document.getElementById("postalCode").value;
+    let phone = document.getElementById("phone").value;
+    let payment = document.getElementById("payment").value;
+    let notes = document.getElementById("notes").value;
+
+    if (!fullName || !email || !county || !city || !address || !postalCode || !phone || !payment) {
+        alert("Completează toate câmpurile obligatorii!");
+        return;
+    }
+
+    if (!/^[^\s@]+@(gmail\.com|yahoo\.com)$/.test(email)) {
+        alert("Email invalid! Folosește gmail.com sau yahoo.com.");
+        return;
+    }
+
+    if (cart.length === 0) {
+        alert("Coșul este gol!");
+        return;
+    }
+
+    let total = 0;
+    cart.forEach(product => {
+        total += product.price * product.quantity;
+    });
+
+    const res = await fetch(`${API}/orders`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            userId: currentUser.id,
+            email,
+            fullName,
+            county,
+            city,
+            address,
+            postalCode,
+            phone,
+            total,
+            payment,
+            notes
+        })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+        alert("Comanda a fost plasată cu succes! Verifică emailul.");
+        window.location.href = "index.html";
+    } else {
+        alert(data.message || "Eroare la plasarea comenzii.");
+    }
+}
+
+loadCheckoutCart();
+</script>
+
+</body>
+</html>

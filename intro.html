@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>MegaShop - Prezentare</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            height: 100vh;
+            background: linear-gradient(135deg, #1237ff, #08145f);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .intro-card {
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            max-width: 600px;
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        h1 span {
+            color: #ffd700;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .author {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .school {
+            font-size: 16px;
+            opacity: 0.8;
+            margin-bottom: 40px;
+        }
+
+        .enter-btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 12px;
+            background: #ffd700;
+            color: #000;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .enter-btn:hover {
+            transform: scale(1.05);
+            background: #ffcc00;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="intro-card">
+    <h1>Mega<span>Shop</span></h1>
+
+    <p class="subtitle">
+        Magazin online modern - proiect educațional
+    </p>
+
+    <p class="author">
+        Proiect realizat de:<br>
+        <strong>Busi Guillermo Gabriel</strong>
+    </p>
+
+    <p class="school">
+        Elev clasa a XI-a, profil Real<br>
+        Liceul Teoretic Mihai Veliciu<br>
+        Chișineu-Criș
+    </p>
+
+    <button class="enter-btn" onclick="enterSite()">
+        Intră în site
+    </button>
+</div>
+
+<script>
+function enterSite() {
+    localStorage.setItem("introSeen", "true");
+    window.location.href = "index.html";
+}
+
+// dacă a mai fost văzut → sare direct
+if (localStorage.getItem("introSeen")) {
+    window.location.href = "index.html";
+}
+</script>
+
+</body>
+</html>

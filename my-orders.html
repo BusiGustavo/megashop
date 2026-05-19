@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>Comenzile mele - MegaShop</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="top-bar">
+    <div class="logo">Mega<span>Shop</span></div>
+    <div class="user-actions">
+        <a href="index.html">Acasă</a>
+        <a href="cos.html">Coș</a>
+    </div>
+</header>
+
+<section class="orders-page">
+    <h2>Comenzile mele</h2>
+    <div id="ordersContainer"></div>
+</section>
+
+<script>
+  const API = "http://localhost:3000/api";
+  let currentUser = JSON.parse(localStorage.getItem("currentUser"));
+  
+  if (!currentUser || !currentUser.id) {
+      alert("Trebuie să fii logat!");
+      window.location.href = "login.html";
+  }
+  
+  async function loadMyOrders() {
+      const box = document.getElementById("ordersContainer");
+  
+      try {
+          const res = await fetch(`${API}/orders`);
+          const orders = await res.json();
+  
+          console.log("CURRENT USER:", currentUser);
+          console.log("TOATE COMENZILE:", orders);
+  
+          const myOrders = orders.filter(o => Number(o.user_id) === Number(currentUser.id));
+  
+          box.innerHTML = "";
+  
+          if (myOrders.length === 0) {
+              box.innerHTML = "<p>Nu ai comenzi pe acest cont.</p>";
+              return;
+          }
+  
+          for (const order of myOrders) {
+              const itemsRes = await fetch(`${API}/orders/${order.id}/items`);
+              const items = await itemsRes.json();
+  
+              box.innerHTML += `
+                  <div class="order-card">
+                      <h3>Comanda #${order.id}</h3>
+                      <p><strong>Status:</strong> ${order.status || "Nouă"}</p>
+                      <p><strong>Total:</strong> ${order.total} lei</p>
+                      <p><strong>Data:</strong> ${order.created_at || "-"}</p>
+  
+                      <h4>Produse comandate:</h4>
+  
+                      ${
+                          items.length === 0
+                          ? "<p>Nu există produse salvate pentru această comandă.</p>"
+                          : items.map(item => `
+                              <div class="order-product">
+                                  <img src="${item.product_image}">
+                                  <div>
+                                      <strong>${item.product_name}</strong>
+                                      <p>${item.quantity} x ${item.price} lei</p>
+                                  </div>
+                              </div>
+                          `).join("")
+                      }
+                  </div>
+              `;
+          }
+  
+      } catch (error) {
+          console.log("EROARE MY ORDERS:", error);
+          box.innerHTML = "<p>Eroare la încărcarea comenzilor.</p>";
+      }
+  }
+  
+  loadMyOrders();
+  </script>
+</body>
+</html>

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>Produs - MegaShop</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="top-bar">
+    <div class="logo">Mega<span>Shop</span></div>
+
+    <div class="search-area">
+        <input type="text" placeholder="Caută produse...">
+        <button>Caută</button>
+    </div>
+
+    <div class="user-actions">
+        <a href="index.html">Acasă</a>
+        <a href="favorite.html">❤️ Favorite</a>
+        <a href="cos.html">🛒 Coș</a>
+    </div>
+</header>
+
+<section id="productDetails" class="product-details-page"></section>
+
+<section class="reviews-section">
+    <h2>Review-uri</h2>
+
+    <div class="review-form">
+        <select id="reviewRating">
+            <option value="">Alege nota</option>
+            <option value="5">5 stele</option>
+            <option value="4">4 stele</option>
+            <option value="3">3 stele</option>
+            <option value="2">2 stele</option>
+            <option value="1">1 stea</option>
+        </select>
+
+        <textarea id="reviewComment" placeholder="Scrie comentariul tău..."></textarea>
+        <button onclick="addReview()">Trimite review</button>
+    </div>
+
+    <div id="reviewsBox"></div>
+</section>
+
+<section class="products-section">
+    <h2>Produse care te-ar putea interesa</h2>
+    <div class="products-grid" id="relatedProducts"></div>
+</section>
+
+<script src="js/script.js"></script>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const productId = Number(params.get("id"));
+let currentProduct = null;
+let currentUserProductPage = JSON.parse(localStorage.getItem("currentUser"));
+
+async function loadProductPage() {
+    const res = await fetch(`${API}/products/${productId}`);
+
+    if (!res.ok) {
+        document.getElementById("productDetails").innerHTML = "<h2>Produsul nu a fost găsit.</h2>";
+        return;
+    }
+
+    currentProduct = await res.json();
+
+    renderProductDetails();
+    loadReviews();
+    loadRelatedProducts();
+}
+
+function renderProductDetails() {
+    const product = currentProduct;
+    const details = document.getElementById("productDetails");
+
+    details.innerHTML = `
+        <div class="product-details-card">
+            <div class="product-gallery">
+                <img src="${product.image}" alt="${product.name}">
+            </div>
+
+            <div class="product-info-main">
+                <p class="breadcrumb">MegaShop / ${product.category}</p>
+
+                <h1>${product.name}</h1>
+
+                <p class="product-code">Cod produs: MS-${product.id}00${product.id}</p>
+
+                <div class="rating product-rating" id="productAverageRating">
+                    ${"★".repeat(product.rating || 5)}${"☆".repeat(5 - (product.rating || 5))}
+                    <span> rating produs</span>
+                </div>
+
+                <p class="product-long-description">${product.longDescription || product.description}</p>
+
+                <div class="product-specs">
+                    <h3>Caracteristici principale</h3>
+                    <ul>
+                        <li>Categorie: ${product.category}</li>
+                        <li>Stoc disponibil: ${product.stock} bucăți</li>
+                        <li>Garanție: 24 luni</li>
+                        <li>Retur: 30 zile</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="buy-box">
+                <p class="seller">Vândut de <strong>MegaShop</strong></p>
+
+                <span class="old-price">${product.oldPrice || product.price} lei</span>
+                <p class="price details-main-price">${product.price} lei</p>
+
+                ${
+                    product.stock <= 0
+                    ? `<p class="stock-empty">Stoc epuizat</p>`
+                    : `<p class="stock-ok">În stoc</p>`
+                }
+
+                <p class="delivery">Livrare estimată: 1-3 zile lucrătoare</p>
+
+                ${
+                    product.stock <= 0
+                    ? `<button class="cart-btn out-of-stock-btn" disabled>Stoc epuizat</button>`
+                    : `<button class="cart-btn" onclick="addToCart(${product.id}, this)">Adaugă în coș</button>`
+                }
+
+                <button 
+                      id="detailsFavBtn"
+    class="outline-btn ${isFavorite(product.id) ? 'active-fav-details' : ''}" 
+    onclick="toggleFavoriteDetails(${product.id})">
+    ${isFavorite(product.id) ? '♥ Adăugat la favorite' : '♡ Adaugă la favorite'}
+</button>
+                <div class="safe-box">
+                    <p>🔒 Plată securizată</p>
+                    <p>🚚 Livrare rapidă</p>
+                    <p>↩️ Retur gratuit 30 zile</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="description-panel">
+            <h2>Descriere produs</h2>
+            <p>${product.longDescription || product.description}</p>
+
+            <h2>Specificații</h2>
+            <table>
+                <tr><td>Brand</td><td>MegaShop Partner</td></tr>
+                <tr><td>Categorie</td><td>${product.category}</td></tr>
+                <tr><td>Stoc</td><td>${product.stock} bucăți</td></tr>
+                <tr><td>Garanție</td><td>24 luni</td></tr>
+            </table>
+        </div>
+    `;
+}
+
+async function loadReviews() {
+    const res = await fetch(`${API}/products/${productId}/reviews`);
+    const reviews = await res.json();
+
+    const box = document.getElementById("reviewsBox");
+    const ratingBox = document.getElementById("productAverageRating");
+
+    box.innerHTML = "";
+
+    if (reviews.length === 0) {
+        box.innerHTML = "<p>Nu există review-uri pentru acest produs.</p>";
+        return;
+    }
+
+    let average = reviews.reduce((sum, r) => sum + Number(r.rating), 0) / reviews.length;
+    let rounded = Math.round(average);
+
+    if (ratingBox) {
+        ratingBox.innerHTML = `
+            ${"★".repeat(rounded)}${"☆".repeat(5 - rounded)}
+            <span> ${average.toFixed(1)} din 5 (${reviews.length} review-uri)</span>
+        `;
+    }
+
+    box.innerHTML = `
+        <div class="average-review">
+            Media review-urilor: <strong>${average.toFixed(1)} / 5</strong>
+        </div>
+    `;
+
+    reviews.forEach(review => {
+        box.innerHTML += `
+            <div class="review-card">
+                <h3>${review.user_name}</h3>
+                <p class="rating">${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)}</p>
+                <p>${review.comment}</p>
+                <small>${review.created_at}</small>
+            </div>
+        `;
+    });
+}
+
+async function addReview() {
+    if (!currentUserProductPage) {
+        alert("Trebuie să fii logat ca să lași review.");
+        window.location.href = "login.html";
+        return;
+    }
+
+    const rating = Number(document.getElementById("reviewRating").value);
+    const comment = document.getElementById("reviewComment").value;
+
+    const res = await fetch(`${API}/products/${productId}/reviews`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            userId: currentUserProductPage.id,
+            userName: currentUserProductPage.name,
+            rating: rating,
+            comment: comment
+        })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+        document.getElementById("reviewRating").value = "";
+        document.getElementById("reviewComment").value = "";
+        loadReviews();
+    } else {
+        alert(data.message);
+    }
+}
+
+async function loadRelatedProducts() {
+    const res = await fetch(`${API}/products/${productId}/related`);
+    const products = await res.json();
+
+    const grid = document.getElementById("relatedProducts");
+    grid.innerHTML = "";
+
+    if (products.length === 0) {
+        grid.innerHTML = "<p>Momentan nu există produse similare.</p>";
+        return;
+    }
+
+    products.forEach(product => {
+        grid.innerHTML += `
+            <div class="product-card">
+                <img src="${product.image}" alt="${product.name}">
+                <h3><a href="produs.html?id=${product.id}">${product.name}</a></h3>
+                <p>${product.description}</p>
+
+                <div class="price-row">
+                    <span class="old-price">${product.oldPrice || product.price} lei</span>
+                    <span class="price">${product.price} lei</span>
+                </div>
+
+                ${
+                    product.stock <= 0
+                    ? `<button class="cart-btn out-of-stock-btn" disabled>Stoc epuizat</button>`
+                    : `<button class="cart-btn" onclick="addToCart(${product.id}, this)">Adaugă în coș</button>`
+                }
+            </div>
+        `;
+    });
+}
+async function toggleFavoriteDetails(productId) {
+    await toggleFavorite(productId);
+    await loadFavoritesCache();
+
+    const btn = document.getElementById("detailsFavBtn");
+
+    if (isFavorite(productId)) {
+        btn.classList.add("active-fav-details");
+        btn.innerText = "♥ Adăugat la favorite";
+    } else {
+        btn.classList.remove("active-fav-details");
+        btn.innerText = "♡ Adaugă la favorite";
+    }
+}
+loadProductPage();
+</script>
+
+</body>
+</html>

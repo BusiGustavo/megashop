@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - MegaShop</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="top-bar">
+    <div class="logo">Mega<span>Shop</span> Admin</div>
+
+    <div class="user-actions">
+        <a href="index.html">Magazin</a>
+        <a href="#" onclick="logout()">Logout</a>
+    </div>
+</header>
+
+<section class="admin-page">
+    <h1>Panou administrator</h1>
+    <p class="admin-subtitle">Adaugă produse, gestionează stocul și verifică produsele existente.</p>
+
+    <div class="admin-layout">
+        <div class="admin-form-box">
+            <h2>Adaugă produs nou</h2>
+
+            <input type="text" id="name" placeholder="Nume produs">
+            <input type="number" id="price" placeholder="Preț actual">
+            <input type="number" id="oldPrice" placeholder="Preț vechi / redus">
+            <input type="text" id="image" placeholder="Link poză produs">
+
+            <select id="category" onchange="updateSubcategories()">
+                <option value="">Alege categoria</option>
+                <option value="Electronice">Electronice</option>
+                <option value="Electrocasnice">Electrocasnice</option>
+                <option value="Fashion">Fashion</option>
+                <option value="Sport">Sport</option>
+                <option value="Auto-Moto">Auto-Moto</option>
+                <option value="Gaming">Gaming</option>
+            </select>
+
+            <select id="subcategory">
+                <option value="">Alege subcategoria</option>
+            </select>
+
+            <input type="number" id="stock" placeholder="Stoc disponibil">
+
+            <textarea id="description" placeholder="Descriere scurtă"></textarea>
+            <textarea id="longDescription" placeholder="Descriere lungă produs"></textarea>
+
+            <button onclick="addProduct()">Adaugă produs în magazin</button>
+        </div>
+
+        <div class="admin-table-box">
+            <h2>Produse existente</h2>
+
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Imagine</th>
+                        <th>Produs</th>
+                        <th>Categorie</th>
+                        <th>Preț</th>
+                        <th>Stoc</th>
+                        <th>Acțiune</th>
+                    </tr>
+                </thead>
+                <tbody id="productsTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="admin-orders-box">
+        <h2>Comenzi primite</h2>
+        <div id="ordersBox"></div>
+    </div>
+</section>
+
+<script>
+const API = "http://localhost:3000/api";
+let currentUser = JSON.parse(localStorage.getItem("currentUser"));
+
+if (!currentUser || currentUser.role !== "admin") {
+    alert("Nu ai acces la pagina de admin!");
+    window.location.href = "index.html";
+}
+
+const subcategories = {
+    "Electronice": ["Telefon", "Laptop", "Calculator", "Tabletă", "Căști", "Televizor"],
+    "Electrocasnice": ["Frigider", "Mașină de spălat", "Aspirator", "Cuptor", "Espressor"],
+    "Fashion": ["Tricouri", "Hanorace", "Geci", "Pantofi", "Ceasuri"],
+    "Sport": ["Fitness", "Biciclete", "Fotbal", "Alergare"],
+    "Auto-Moto": ["Căști moto", "Baterii", "Uleiuri", "Accesorii auto"],
+    "Gaming": ["Console", "Jocuri", "Monitoare", "Tastaturi", "Mouse-uri"]
+};
+
+function updateSubcategories() {
+    const category = document.getElementById("category").value;
+    const subcategorySelect = document.getElementById("subcategory");
+
+    subcategorySelect.innerHTML = `<option value="">Alege subcategoria</option>`;
+
+    if (!category) return;
+
+    subcategories[category].forEach(sub => {
+        subcategorySelect.innerHTML += `<option value="${sub}">${sub}</option>`;
+    });
+}
+
+async function addProduct() {
+    const product = {
+        name: document.getElementById("name").value,
+        price: Number(document.getElementById("price").value),
+        oldPrice: Number(document.getElementById("oldPrice").value),
+        image: document.getElementById("image").value,
+        category: document.getElementById("category").value,
+        subcategory: document.getElementById("subcategory").value,
+        stock: Number(document.getElementById("stock").value),
+        description: document.getElementById("description").value,
+        longDescription: document.getElementById("longDescription").value
+    };
+
+    const res = await fetch(`${API}/products`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(product)
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+        alert("Produs adăugat cu succes!");
+        clearForm();
+        loadProducts();
+    } else {
+        alert(data.message);
+    }
+}
+
+function clearForm() {
+    document.querySelectorAll(".admin-form-box input, .admin-form-box textarea").forEach(input => {
+        input.value = "";
+    });
+
+    document.getElementById("category").value = "";
+    document.getElementById("subcategory").innerHTML = `<option value="">Alege subcategoria</option>`;
+}
+
+async function loadProducts() {
+    const res = await fetch(`${API}/products`);
+    const products = await res.json();
+
+    const table = document.getElementById("productsTable");
+    table.innerHTML = "";
+
+    products.forEach(product => {
+        table.innerHTML += `
+            <tr>
+                <td><img src="${product.image}" class="admin-product-img"></td>
+                <td>${product.name}</td>
+                <td>${product.category}</td>
+                <td>${product.price} lei</td>
+                <td>
+                    <span class="${product.stock <= 0 ? 'stock-empty' : 'stock-ok-admin'}">
+                        ${product.stock <= 0 ? 'Stoc epuizat' : product.stock + ' buc.'}
+                    </span>
+                </td>
+                <td class="admin-actions">
+                      <button class="edit-admin-btn" onclick="addStock(${product.id})">+ Stoc</button>
+                       <button class="minus-admin-btn" onclick="removeStock(${product.id})">- Stoc</button>
+                         <button class="price-admin-btn" onclick="changePrice(${product.id})">Preț</button>
+                      <button class="delete-admin-btn" onclick="deleteProduct(${product.id})">Șterge</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+async function deleteProduct(id) {
+    if (!confirm("Sigur vrei să ștergi produsul?")) return;
+
+    await fetch(`${API}/products/${id}`, {
+        method: "DELETE"
+    });
+
+    loadProducts(); // sau renderProducts();
+}
+
+async function loadOrders() {
+    const res = await fetch(`${API}/orders`);
+    const orders = await res.json();
+
+    const box = document.getElementById("ordersBox");
+    box.innerHTML = "";
+
+    if (orders.length === 0) {
+        box.innerHTML = "<p>Nu există comenzi.</p>";
+        return;
+    }
+
+    orders.forEach(order => {
+        box.innerHTML += `
+            <div class="admin-order-card">
+                <h3>Comanda #${order.id}</h3>
+                <p><strong>Email client:</strong> ${order.email}</p>
+                <p><strong>Nume:</strong> ${order.fullName}</p>
+                <p><strong>Telefon:</strong> ${order.phone}</p>
+                <p><strong>Adresă:</strong> ${order.county}, ${order.city}, ${order.address}</p>
+                <p><strong>Plată:</strong> ${order.payment}</p>
+                <p><strong>Total:</strong> ${order.total} lei</p>
+                <p><strong>Status:</strong> ${order.status}</p>
+                <p><strong>Data:</strong> ${order.created_at}</p>
+
+                <button onclick="markAsShipped(${order.id})">
+                    Predată curierului 🚚
+                </button>
+            </div>
+        `;
+    });
+}
+
+async function addStock(productId) {
+    const amount = prompt("Câte bucăți vrei să adaugi în stoc?");
+
+    if (!amount || Number(amount) <= 0) {
+        alert("Introdu un număr valid.");
+        return;
+    }
+
+    const res = await fetch(`${API}/products/${productId}/stock`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            amount: Number(amount)
+        })
+    });
+
+    const data = await res.json();
+    alert(data.message);
+    loadProducts();
+}
+async function removeStock(productId) {
+    const amount = prompt("Câte bucăți vrei să scazi din stoc?");
+
+    if (!amount || Number(amount) <= 0) {
+        alert("Introdu un număr valid.");
+        return;
+    }
+    async function changePrice(productId) {
+    const newPrice = prompt("Introdu noul preț:");
+
+    if (!newPrice || Number(newPrice) <= 0) {
+        alert("Introdu un preț valid.");
+        return;
+    }
+
+    const res = await fetch(`${API}/products/${productId}/price`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            price: Number(newPrice)
+        })
+    });
+
+    const data = await res.json();
+    alert(data.message);
+    loadProducts();
+}
+
+    const res = await fetch(`${API}/products/${productId}/stock/remove`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            amount: Number(amount)
+        })
+    });
+
+    const data = await res.json();
+    alert(data.message);
+    loadProducts();
+}
+
+function logout() {
+    localStorage.removeItem("currentUser");
+    window.location.href = "index.html";
+}
+async function markAsShipped(orderId) {
+    const res = await fetch(`${API}/orders/${orderId}/status`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            status: "Predată curierului"
+        })
+    });
+
+    const data = await res.json();
+    alert(data.message);
+    loadOrders();
+}
+async function changePrice(productId) {
+    const newPrice = prompt("Introdu noul preț:");
+
+    if (!newPrice || Number(newPrice) <= 0) {
+        alert("Introdu un preț valid.");
+        return;
+    }
+
+    const res = await fetch(`${API}/products/${productId}/price`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ price: Number(newPrice) })
+    });
+
+    const data = await res.json();
+    alert(data.message);
+    loadProducts();
+}
+
+loadProducts();
+loadOrders();
+</script>
+
+</body>
+</html>

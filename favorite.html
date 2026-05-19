@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>Favorite - MegaShop</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="top-bar">
+    <div class="logo">Mega<span>Shop</span></div>
+    <div class="user-actions">
+        <a href="index.html">Acasă</a>
+        <a href="cos.html">Coș</a>
+        <a href="login.html">Cont</a>
+    </div>
+</header>
+
+<section class="cart-page">
+    <h2>Produse favorite</h2>
+    <div id="favoriteItems"></div>
+</section>
+
+<script>
+const API = "http://localhost:3000/api";
+let currentUser = JSON.parse(localStorage.getItem("currentUser"));
+
+if (!currentUser || !currentUser.id) {
+    alert("Trebuie să fii logat!");
+    window.location.href = "login.html";
+}
+
+async function renderFavorites() {
+    const favoriteItems = document.getElementById("favoriteItems");
+
+    const res = await fetch(`${API}/favorites/${currentUser.id}`);
+    const favorites = await res.json();
+
+    favoriteItems.innerHTML = "";
+
+    if (favorites.length === 0) {
+        favoriteItems.innerHTML = "<p>Nu ai produse favorite.</p>";
+        return;
+    }
+
+    favorites.forEach(product => {
+        favoriteItems.innerHTML += `
+            <div class="cart-item">
+                <a href="produs.html?id=${product.id}">
+                    <img src="${product.image}">
+                </a>
+
+                <div>
+                    <h3>
+                        <a href="produs.html?id=${product.id}">${product.name}</a>
+                    </h3>
+                    <p>${product.description}</p>
+                    <strong>${product.price} lei</strong>
+                </div>
+
+                <button onclick="removeFavorite(${product.id})">Șterge</button>
+            </div>
+        `;
+    });
+}
+
+async function removeFavorite(productId) {
+    await fetch(`${API}/favorites`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            userId: currentUser.id,
+            productId: productId
+        })
+    });
+
+    renderFavorites();
+}
+
+renderFavorites();
+</script>
+
+</body>
+</html>

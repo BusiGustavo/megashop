@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MegaShop - Magazin online</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header class="top-bar">
+        <div class="logo">Mega<span>Shop</span></div>
+    
+        <div class="search-area">
+            <input type="text" id="searchInput" placeholder="Caută telefon, laptop, haine, electrocasnice...">
+            <button>Caută</button>
+        </div>
+    
+        <div class="user-actions" id="userActions"></div>
+    </header>
+<div id="loginPopup" class="login-popup">
+    <button class="close-popup" onclick="closeLoginPopup()">×</button>
+    <h2 id="loginPopupTitle"></h2>
+    <p>Bine ai revenit pe MegaShop! Spor la cumpărături.</p>
+</div>
+<div id="welcomeMessage" class="welcome-message"></div>
+
+<nav class="category-nav">
+    <a href="index.html">Toate categoriile</a>
+    <a href="#" onclick="filterCategory('Telefon')">Telefoane</a>
+    <a href="#" onclick="filterCategory('Laptopuri')">Laptopuri</a>
+    <a href="#" onclick="filterCategory('Gaming')">Gaming</a>
+    <a href="#" onclick="filterCategory('Electrocasnice')">Electrocasnice</a>
+    <a href="#" onclick="filterCategory('Fashion')">Fashion</a>
+    <a href="#" onclick="filterCategory('Sport')">Sport</a>
+    <a href="#" onclick="filterCategory('Auto-Moto')">Auto-Moto</a>
+</nav>
+<section class="hero" id="heroSection">
+    <div class="hero-content">
+        <span class="hero-badge">Campanie specială</span>
+        <h1>Reduceri mari la mii de produse</h1>
+        <p>Telefoane, laptopuri, gaming, electrocasnice, fashion și produse auto într-un singur magazin online.</p>
+        <div class="hero-buttons">
+            <button>Vezi ofertele</button>
+        
+        </div>
+    </div>
+
+
+</section>
+
+<section class="benefits" id="benefitsSection">
+    <div>🚚 Livrare rapidă</div>
+    <div>🔁 Retur 30 zile</div>
+    <div>💳 Plată securizată</div>
+    <div>⭐ Produse verificate</div>
+</section>
+
+<section class="categories-section" id="categoriesSection">
+    <h2>Categorii populare</h2>
+
+    <div class="categories-grid">
+        <div class="category-card">📱 <span>Telefoane</span></div>
+        <div class="category-card">💻 <span>Laptopuri</span></div>
+        <div class="category-card">🎮 <span>Gaming</span></div>
+        <div class="category-card">📺 <span>TV & Audio</span></div>
+        <div class="category-card">👕 <span>Fashion</span></div>
+        <div class="category-card">🏍️ <span>Auto-Moto</span></div>
+    </div>
+</section>
+
+<section class="products-section">
+    <div class="section-header">
+        <div>
+            <h2>Produse recomandate</h2>
+            <p>Cele mai populare produse ale momentului</p>
+        </div>
+
+        <select id="sortSelect">
+            <option value="default">Sortează produsele</option>
+            <option value="low">Preț crescător</option>
+            <option value="high">Preț descrescător</option>
+        </select>
+    </div>
+
+    <div class="products-grid" id="productsGrid">
+        
+    </div>
+</section>
+
+<section class="newsletter" id="newsletterSection">
+    <h2>Abonează-te la ofertele MegaShop</h2>
+    <p>Primești reduceri, noutăți și oferte exclusive direct pe email.</p>
+    <div>
+        <input type="email" placeholder="Adresa ta de email">
+        <button>Abonare</button>
+    </div>
+</section>
+
+<footer class="footer">
+    <div>
+        <h3>Mega<span>Shop</span></h3>
+        <p>Magazin online modern, rapid și sigur, creat pentru o experiență completă de cumpărături.</p>
+    </div>
+
+    <div>
+        <h4>Servicii clienți</h4>
+        <a href="mailto:megashopbg8@gmail.com">Contact</a>
+        <a href="livrare.html">Livrare</a>
+
+    </div>
+    
+    <div>
+        <h4>Contul meu</h4>
+        <a href="login.html">Autentificare</a>
+        <a href="my-orders.html">Comenzile mele</a>
+        <a href="favorite.html">Favorite</a>
+        <a href="cos.html">Coș</a>
+    </div>
+
+    <div>
+        <h4>Contact</h4>
+        <p>📧 megashopbg8@gmail.com</p>
+        <p>📞 0774 461 759</p>
+        <p>📍 România</p>
+    </div>
+</footer>
+
+<script src="js/script.js"></script>
+</body>
+</html>

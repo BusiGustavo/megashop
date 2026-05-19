@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>Cont - MegaShop</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="top-bar">
+    <div class="logo">Mega<span>Shop</span></div>
+    <div class="user-actions">
+        <a href="index.html">Acasă</a>
+        <a href="cos.html">Coș</a>
+        <a href="favorite.html">Favorite</a>
+    </div>
+</header>
+
+<section class="auth-container">
+    <div class="auth-box">
+        <h2>Autentificare</h2>
+        <input type="email" id="loginEmail" placeholder="Email">
+        <input type="password" id="loginPassword" placeholder="Parolă">
+
+        <p onclick="forgotPassword()" style="cursor:pointer; color:blue;">
+            Ai uitat parola?
+        </p>
+
+        <button onclick="login()">Intră în cont</button>
+    </div>
+
+    <div class="auth-box">
+        <h2>Creare cont</h2>
+        <input type="text" id="registerName" placeholder="Nume complet">
+        <input type="email" id="registerEmail" placeholder="Email">
+
+        <div class="password-wrapper">
+            <input type="password" id="registerPassword" placeholder="Parolă" oninput="checkPassword()">
+            <span onclick="togglePassword()" class="eye-btn">👁️</span>
+        </div>
+
+        <div id="passwordRules" class="password-rules">
+            <p id="ruleLength">❌ Minim 8 caractere</p>
+            <p id="ruleUpper">❌ O literă mare</p>
+            <p id="ruleNumber">❌ Un număr</p>
+            <p id="ruleSymbol">❌ Un simbol (!@#$)</p>
+        </div>
+
+        <input type="text" id="registerPhone" placeholder="Telefon">
+        <button onclick="register()">Creează cont</button>
+    </div>
+</section>
+
+<script>
+const API = "http://localhost:3000/api";
+
+function checkPassword() {
+    let pass = document.getElementById("registerPassword").value;
+
+    updateRule("ruleLength", pass.length >= 8);
+    updateRule("ruleUpper", /[A-Z]/.test(pass));
+    updateRule("ruleNumber", /[0-9]/.test(pass));
+    updateRule("ruleSymbol", /[^A-Za-z0-9]/.test(pass));
+}
+
+function updateRule(id, valid) {
+    const el = document.getElementById(id);
+    const text = el.innerText.substring(2);
+
+    if (valid) {
+        el.innerText = "✅ " + text;
+        el.style.color = "green";
+    } else {
+        el.innerText = "❌ " + text;
+        el.style.color = "red";
+    }
+}
+
+function togglePassword() {
+    const input = document.getElementById("registerPassword");
+
+    if (input.type === "password") {
+        input.type = "text";
+    } else {
+        input.type = "password";
+    }
+}
+
+async function register() {
+    let name = document.getElementById("registerName").value;
+    let email = document.getElementById("registerEmail").value;
+    let password = document.getElementById("registerPassword").value;
+    let phone = document.getElementById("registerPhone").value;
+
+    if (!email.endsWith("@gmail.com") && !email.endsWith("@yahoo.com")) {
+        alert("Email invalid! Folosește gmail sau yahoo.");
+        return;
+    }
+
+    if (
+        password.length < 8 ||
+        !/[A-Z]/.test(password) ||
+        !/[0-9]/.test(password) ||
+        !/[^A-Za-z0-9]/.test(password)
+    ) {
+        checkPassword();
+        return;
+    }
+
+    const res = await fetch(`${API}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, phone })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+        localStorage.setItem("currentUser", JSON.stringify(data.user));
+        window.location.href = "index.html";
+    } else {
+        alert(data.message);
+    }
+}
+
+async function login() {
+    let email = document.getElementById("loginEmail").value;
+    let password = document.getElementById("loginPassword").value;
+
+    const res = await fetch(`${API}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+        localStorage.setItem("currentUser", JSON.stringify(data.user));
+
+        if (data.user.role === "admin") {
+            window.location.href = "admin.html";
+        } else {
+            window.location.href = "index.html";
+        }
+    } else {
+        alert(data.message);
+    }
+}
+
+async function forgotPassword() {
+    console.log("APASAT RESET");
+
+    let email = prompt("Introdu emailul tău:");
+    if (!email) return;
+
+    console.log("TRIMIT REQUEST...");
+
+    const res = await fetch("http://localhost:3000/api/forgot-password", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email })
+    });
+
+    const data = await res.json();
+    console.log("RASPUNS:", data);
+
+    alert(data.message);
+}
+
+</script>
+
+</body>
+</html>
