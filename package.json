@@ -16,5 +16,8 @@
     "express": "^5.2.1",
     "nodemailer": "^8.0.7",
     "process": "^0.11.10"
+  },
+  "devDependencies": {
+    "sqlite3": "^6.0.1"
   }
 }

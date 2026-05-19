@@ -1,7 +1,7 @@
 const nodemailer = require("nodemailer");
 const express = require("express");
 const cors = require("cors");
-// const Database = require("better-sqlite3");
+const Database = require("better-sqlite3");
 const bcrypt = require("bcrypt");
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,7 +26,7 @@ app.use((req, res, next) => {
     console.log(`Incoming request for ${req.originalUrl}`);
     next();
 });
-// const db = new Database("magazin.db");
+const db = new Database(path.join(process.cwd(), "magazin.db"));
 
 app.get("/", (req, res) => {
     fs.readFile(path.join(process.cwd(), "html", "index.html"), (error, file) => {
