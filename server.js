@@ -25,7 +25,7 @@ app.use("/", express.static("../html"))
 // const db = new Database("magazin.db");
 
 app.get("/", (req, res) => {
-    fs.readFile(path.join(process.cwd(), "html", "index.html"), (error, file) => {
+    fs.readFile(path.join("html", "index.html"), (error, file) => {
         res.writeHead(200, {"Content-Type": "text/html"})
         res.end(file)
     })
