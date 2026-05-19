@@ -6,6 +6,7 @@ const bcrypt = require("bcrypt");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const crypto = require("crypto");
+const fs = require("fs")
 
 const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -17,8 +18,18 @@ const transporter = nodemailer.createTransport({
 
 app.use(cors());
 app.use(express.json());
+app.use("/css", express.static("../css"))
+app.use("/js", express.static("../js"))
+app.use("/", express.static("../html"))
 
 const db = new Database("magazin.db");
+
+app.get("/", (req, res) => {
+    fs.readFile("../html/index.html", (error, file) => {
+        res.writeHead(200, {"Content-Type": "text/html"})
+        res.end(file)
+    })
+})
 
 // USERS
 db.exec(`
