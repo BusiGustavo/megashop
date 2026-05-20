@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const path = require("node:path");
 const fs = require("fs");
 const { Pool } = require("pg");
+const Database = require("better-sqlite3");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,11 +28,21 @@ const transporter = nodemailer.createTransport({
 
 app.use(cors());
 app.use(express.json());
+app.use("/css", express.static(path.join(process.cwd(), "css")))
+app.use("/js", express.static(path.join(process.cwd(), "js")))
+app.use("/", express.static(path.join(process.cwd(), "html")))
+app.use((req, res, next) => {
+    console.log(`Incoming request for ${req.originalUrl}`);
+    next();
+});
 
-app.use("/css", express.static(path.join(process.cwd(), "css")));
-app.use("/js", express.static(path.join(process.cwd(), "js")));
-app.use("/", express.static(path.join(process.cwd(), "html")));
-
+app.get("/", (req, res) => {
+    fs.readFile(path.join(process.cwd(), "html", "index.html"), (error, file) => {
+        console.log("here", error)
+        res.writeHead(200, {"Content-Type": "text/html"})
+        res.end(file)
+    })
+})
 // =========================
 // PG HELPERS
 // =========================
