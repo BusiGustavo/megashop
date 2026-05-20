@@ -6,7 +6,7 @@ const crypto = require("crypto");
 const path = require("node:path");
 const fs = require("fs");
 
-const { neon } = require("@neondatabase/serverless");
+const {neon} = require("@neondatabase/serverless");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -94,84 +94,94 @@ async function none(text, params = []) {
 
 async function initDb() {
     await none(`
-        CREATE TABLE IF NOT EXISTS users (
-                                             id SERIAL PRIMARY KEY,
-                                             name TEXT,
-                                             email TEXT UNIQUE,
-                                             password TEXT,
-                                             phone TEXT,
-                                             role TEXT
-        );
+        CREATE TABLE IF NOT EXISTS users
+        (
+            id       SERIAL PRIMARY KEY,
+            name     TEXT,
+            email    TEXT UNIQUE,
+            password TEXT,
+            phone    TEXT,
+            role     TEXT
 
-        CREATE TABLE IF NOT EXISTS products (
-                                                id SERIAL PRIMARY KEY,
-                                                name TEXT,
-                                                price REAL,
-                                                oldPrice REAL,
-                                                image TEXT,
-                                                description TEXT,
-                                                longDescription TEXT,
-                                                category TEXT,
-                                                subcategory TEXT,
-                                                stock INTEGER,
-                                                rating INTEGER DEFAULT 0
-        );
+        ) `)
+    await none(`
 
-        CREATE TABLE IF NOT EXISTS favorites (
-                                                 id SERIAL PRIMARY KEY,
-                                                 user_id INTEGER,
-                                                 product_id INTEGER
-        );
-
-        CREATE TABLE IF NOT EXISTS cart (
-                                            id SERIAL PRIMARY KEY,
-                                            user_id INTEGER,
-                                            product_id INTEGER,
-                                            quantity INTEGER
-        );
-
-        CREATE TABLE IF NOT EXISTS orders (
-                                              id SERIAL PRIMARY KEY,
-                                              user_id INTEGER,
-                                              email TEXT,
-                                              fullName TEXT,
-                                              county TEXT,
-                                              city TEXT,
-                                              address TEXT,
-                                              phone TEXT,
-                                              payment TEXT,
-                                              notes TEXT,
-                                              total REAL,
-                                              status TEXT DEFAULT 'Nouă',
-                                              created_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS order_items (
-                                                   id SERIAL PRIMARY KEY,
-                                                   order_id INTEGER,
-                                                   product_id INTEGER,
-                                                   product_name TEXT,
-                                                   product_image TEXT,
-                                                   price REAL,
-                                                   quantity INTEGER
-        );
-
-        CREATE TABLE IF NOT EXISTS password_resets (
-                                                       id SERIAL PRIMARY KEY,
-                                                       user_id INTEGER,
-                                                       token TEXT UNIQUE,
-                                                       expires_at BIGINT
-        );
-
-        CREATE TABLE IF NOT EXISTS reviews (
-                                               id SERIAL PRIMARY KEY,
-                                               product_id INTEGER,
-                                               user_id INTEGER,
-                                               user_name TEXT,
-                                               rating INTEGER,
-                                               comment TEXT,
-                                               created_at TEXT
-        );
+        CREATE TABLE IF NOT EXISTS products
+        (
+            id              SERIAL PRIMARY KEY,
+            name            TEXT,
+            price           REAL,
+            oldPrice        REAL,
+            image           TEXT,
+            description     TEXT,
+            longDescription TEXT,
+            category        TEXT,
+            subcategory     TEXT,
+            stock           INTEGER,
+            rating          INTEGER DEFAULT 0
+        ) `)
+    await none(`
+        CREATE TABLE IF NOT EXISTS favorites
+        (
+            id         SERIAL PRIMARY KEY,
+            user_id    INTEGER,
+            product_id INTEGER
+        ) `)
+    await none(`
+        CREATE TABLE IF NOT EXISTS cart
+        (
+            id         SERIAL PRIMARY KEY,
+            user_id    INTEGER,
+            product_id INTEGER,
+            quantity   INTEGER
+        ) `)
+    await none(`
+        CREATE TABLE IF NOT EXISTS orders
+        (
+            id         SERIAL PRIMARY KEY,
+            user_id    INTEGER,
+            email      TEXT,
+            fullName   TEXT,
+            county     TEXT,
+            city       TEXT,
+            address    TEXT,
+            phone      TEXT,
+            payment    TEXT,
+            notes      TEXT,
+            total      REAL,
+            status     TEXT DEFAULT 'Nouă',
+            created_at TEXT
+        ) `)
+    await none(`
+        CREATE TABLE IF NOT EXISTS order_items
+        (
+            id            SERIAL PRIMARY KEY,
+            order_id      INTEGER,
+            product_id    INTEGER,
+            product_name  TEXT,
+            product_image TEXT,
+            price         REAL,
+            quantity      INTEGER
+        ) `)
+    await none(`
+        CREATE TABLE IF NOT EXISTS password_resets
+        (
+            id         SERIAL PRIMARY KEY,
+            user_id    INTEGER,
+            token      TEXT UNIQUE,
+            expires_at BIGINT
+        ) `)
+    await none(`
+        CREATE TABLE IF NOT EXISTS reviews
+        (
+            id         SERIAL PRIMARY KEY,
+            product_id INTEGER,
+            user_id    INTEGER,
+            user_name  TEXT,
+            rating     INTEGER,
+            comment    TEXT,
+            created_at TEXT
+        )
     `);
 
     const admin = await oneOrNone(
@@ -184,13 +194,11 @@ async function initDb() {
 
         await none(`
             INSERT INTO users
-            (
-                name,
-                email,
-                password,
-                phone,
-                role
-            )
+            (name,
+             email,
+             password,
+             phone,
+             role)
             VALUES ($1, $2, $3, $4, $5)
         `, [
             "Administrator",
@@ -214,7 +222,7 @@ initDb().catch(err => {
 
 app.post("/api/login", async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const {email, password} = req.body;
 
         const userFull = await oneOrNone(
             "SELECT * FROM users WHERE email = $1",
@@ -261,20 +269,18 @@ app.post("/api/login", async (req, res) => {
 // =========================
 
 app.post("/api/register", async (req, res) => {
-    const { name, email, password, phone } = req.body;
+    const {name, email, password, phone} = req.body;
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         await none(`
             INSERT INTO users
-            (
-                name,
-                email,
-                password,
-                phone,
-                role
-            )
+            (name,
+             email,
+             password,
+             phone,
+             role)
             VALUES ($1, $2, $3, $4, $5)
         `, [
             name,
@@ -285,11 +291,10 @@ app.post("/api/register", async (req, res) => {
         ]);
 
         const user = await one(`
-            SELECT
-                id,
-                name,
-                email,
-                role
+            SELECT id,
+                   name,
+                   email,
+                   role
             FROM users
             WHERE email = $1
         `, [email]);
@@ -347,23 +352,18 @@ app.post("/api/products", async (req, res) => {
 
         await none(`
             INSERT INTO products
-            (
-                name,
-                price,
-                oldPrice,
-                image,
-                description,
-                longDescription,
-                category,
-                subcategory,
-                stock,
-                rating
-            )
-            VALUES
-                (
-                    $1,$2,$3,$4,$5,
-                    $6,$7,$8,$9,$10
-                )
+            (name,
+             price,
+             oldPrice,
+             image,
+             description,
+             longDescription,
+             category,
+             subcategory,
+             stock,
+             rating)
+            VALUES ($1, $2, $3, $4, $5,
+                    $6, $7, $8, $9, $10)
         `, [
             p.name,
             p.price,
