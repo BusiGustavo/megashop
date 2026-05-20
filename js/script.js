@@ -1,4 +1,4 @@
-const API = "http://localhost:3000/api";
+const API = "/api";
 const newsletter = document.getElementById("newsletterSection");
 
 let currentUser = JSON.parse(localStorage.getItem("currentUser"));
