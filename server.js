@@ -92,129 +92,129 @@ async function none(text, params = []) {
 // INIT DB
 // =========================
 
-async function initDb() {
-    await none(`
-        CREATE TABLE IF NOT EXISTS users
-        (
-            id       SERIAL PRIMARY KEY,
-            name     TEXT,
-            email    TEXT UNIQUE,
-            password TEXT,
-            phone    TEXT,
-            role     TEXT
-
-        ) `)
-    await none(`
-
-        CREATE TABLE IF NOT EXISTS products
-        (
-            id              SERIAL PRIMARY KEY,
-            name            TEXT,
-            price           REAL,
-            oldPrice        REAL,
-            image           TEXT,
-            description     TEXT,
-            longDescription TEXT,
-            category        TEXT,
-            subcategory     TEXT,
-            stock           INTEGER,
-            rating          INTEGER DEFAULT 0
-        ) `)
-    await none(`
-        CREATE TABLE IF NOT EXISTS favorites
-        (
-            id         SERIAL PRIMARY KEY,
-            user_id    INTEGER,
-            product_id INTEGER
-        ) `)
-    await none(`
-        CREATE TABLE IF NOT EXISTS cart
-        (
-            id         SERIAL PRIMARY KEY,
-            user_id    INTEGER,
-            product_id INTEGER,
-            quantity   INTEGER
-        ) `)
-    await none(`
-        CREATE TABLE IF NOT EXISTS orders
-        (
-            id         SERIAL PRIMARY KEY,
-            user_id    INTEGER,
-            email      TEXT,
-            fullName   TEXT,
-            county     TEXT,
-            city       TEXT,
-            address    TEXT,
-            phone      TEXT,
-            payment    TEXT,
-            notes      TEXT,
-            total      REAL,
-            status     TEXT DEFAULT 'Nouă',
-            created_at TEXT
-        ) `)
-    await none(`
-        CREATE TABLE IF NOT EXISTS order_items
-        (
-            id            SERIAL PRIMARY KEY,
-            order_id      INTEGER,
-            product_id    INTEGER,
-            product_name  TEXT,
-            product_image TEXT,
-            price         REAL,
-            quantity      INTEGER
-        ) `)
-    await none(`
-        CREATE TABLE IF NOT EXISTS password_resets
-        (
-            id         SERIAL PRIMARY KEY,
-            user_id    INTEGER,
-            token      TEXT UNIQUE,
-            expires_at BIGINT
-        ) `)
-    await none(`
-        CREATE TABLE IF NOT EXISTS reviews
-        (
-            id         SERIAL PRIMARY KEY,
-            product_id INTEGER,
-            user_id    INTEGER,
-            user_name  TEXT,
-            rating     INTEGER,
-            comment    TEXT,
-            created_at TEXT
-        )
-    `);
-
-    const admin = await oneOrNone(
-        "SELECT * FROM users WHERE role = $1",
-        ["admin"]
-    );
-
-    if (!admin) {
-        const hash = await bcrypt.hash("1", 10);
-
-        await none(`
-            INSERT INTO users
-            (name,
-             email,
-             password,
-             phone,
-             role)
-            VALUES ($1, $2, $3, $4, $5)
-        `, [
-            "Administrator",
-            "1",
-            hash,
-            "0700000000",
-            "admin"
-        ]);
-    }
-
-    console.log("Baza de date PostgreSQL este pregătită.");
-}
-
-initDb().catch(err => {
-    console.log("EROARE DB:", err);
-});
+// async function initDb() {
+//     await none(`
+//         CREATE TABLE IF NOT EXISTS users
+//         (
+//             id       SERIAL PRIMARY KEY,
+//             name     TEXT,
+//             email    TEXT UNIQUE,
+//             password TEXT,
+//             phone    TEXT,
+//             role     TEXT
+//
+//         ) `)
+//     await none(`
+//
+//         CREATE TABLE IF NOT EXISTS products
+//         (
+//             id              SERIAL PRIMARY KEY,
+//             name            TEXT,
+//             price           REAL,
+//             oldPrice        REAL,
+//             image           TEXT,
+//             description     TEXT,
+//             longDescription TEXT,
+//             category        TEXT,
+//             subcategory     TEXT,
+//             stock           INTEGER,
+//             rating          INTEGER DEFAULT 0
+//         ) `)
+//     await none(`
+//         CREATE TABLE IF NOT EXISTS favorites
+//         (
+//             id         SERIAL PRIMARY KEY,
+//             user_id    INTEGER,
+//             product_id INTEGER
+//         ) `)
+//     await none(`
+//         CREATE TABLE IF NOT EXISTS cart
+//         (
+//             id         SERIAL PRIMARY KEY,
+//             user_id    INTEGER,
+//             product_id INTEGER,
+//             quantity   INTEGER
+//         ) `)
+//     await none(`
+//         CREATE TABLE IF NOT EXISTS orders
+//         (
+//             id         SERIAL PRIMARY KEY,
+//             user_id    INTEGER,
+//             email      TEXT,
+//             fullName   TEXT,
+//             county     TEXT,
+//             city       TEXT,
+//             address    TEXT,
+//             phone      TEXT,
+//             payment    TEXT,
+//             notes      TEXT,
+//             total      REAL,
+//             status     TEXT DEFAULT 'Nouă',
+//             created_at TEXT
+//         ) `)
+//     await none(`
+//         CREATE TABLE IF NOT EXISTS order_items
+//         (
+//             id            SERIAL PRIMARY KEY,
+//             order_id      INTEGER,
+//             product_id    INTEGER,
+//             product_name  TEXT,
+//             product_image TEXT,
+//             price         REAL,
+//             quantity      INTEGER
+//         ) `)
+//     await none(`
+//         CREATE TABLE IF NOT EXISTS password_resets
+//         (
+//             id         SERIAL PRIMARY KEY,
+//             user_id    INTEGER,
+//             token      TEXT UNIQUE,
+//             expires_at BIGINT
+//         ) `)
+//     await none(`
+//         CREATE TABLE IF NOT EXISTS reviews
+//         (
+//             id         SERIAL PRIMARY KEY,
+//             product_id INTEGER,
+//             user_id    INTEGER,
+//             user_name  TEXT,
+//             rating     INTEGER,
+//             comment    TEXT,
+//             created_at TEXT
+//         )
+//     `);
+//
+//     const admin = await oneOrNone(
+//         "SELECT * FROM users WHERE role = $1",
+//         ["admin"]
+//     );
+//
+//     if (!admin) {
+//         const hash = await bcrypt.hash("1", 10);
+//
+//         await none(`
+//             INSERT INTO users
+//             (name,
+//              email,
+//              password,
+//              phone,
+//              role)
+//             VALUES ($1, $2, $3, $4, $5)
+//         `, [
+//             "Administrator",
+//             "1",
+//             hash,
+//             "0700000000",
+//             "admin"
+//         ]);
+//     }
+//
+//     console.log("Baza de date PostgreSQL este pregătită.");
+// }
+//
+// initDb().catch(err => {
+//     console.log("EROARE DB:", err);
+// });
 
 // =========================
 // LOGIN
