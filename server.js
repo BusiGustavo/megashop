@@ -5,12 +5,12 @@ const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const path = require("node:path");
 const fs = require("fs");
-const pgp = require("pg-promise")();
+const { Pool } = require("pg");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const db = pgp(process.env.DATABASE_URL,  {
+const db = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false,
@@ -30,9 +30,46 @@ app.use(express.json());
 
 app.use("/css", express.static(path.join(process.cwd(), "css")));
 app.use("/js", express.static(path.join(process.cwd(), "js")));
+app.use("/", express.static(path.join(process.cwd(), "html")));
+
+// =========================
+// PG HELPERS
+// =========================
+
+async function query(text, params = []) {
+    return db.query(text, params);
+}
+
+async function one(text, params = []) {
+    const result = await db.query(text, params);
+
+    if (result.rows.length === 0) {
+        throw new Error("No rows found");
+    }
+
+    return result.rows[0];
+}
+
+async function oneOrNone(text, params = []) {
+    const result = await db.query(text, params);
+    return result.rows[0] || null;
+}
+
+async function any(text, params = []) {
+    const result = await db.query(text, params);
+    return result.rows;
+}
+
+async function none(text, params = []) {
+    await db.query(text, params);
+}
+
+// =========================
+// INIT DB
+// =========================
 
 async function initDb() {
-    await db.none(`
+    await none(`
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             name TEXT,
@@ -113,14 +150,24 @@ async function initDb() {
         );
     `);
 
-    const admin = await db.oneOrNone("SELECT * FROM users WHERE role='admin'");
+    const admin = await oneOrNone(
+        "SELECT * FROM users WHERE role=$1",
+        ["admin"]
+    );
 
     if (!admin) {
         const hash = await bcrypt.hash("1", 10);
-        await db.none(`
+
+        await none(`
             INSERT INTO users (name, email, password, phone, role)
             VALUES ($1, $2, $3, $4, $5)
-        `, ["Administrator", "1", hash, "0700000000", "admin"]);
+        `, [
+            "Administrator",
+            "1",
+            hash,
+            "0700000000",
+            "admin"
+        ]);
     }
 
     console.log("Baza de date PostgreSQL este pregătită.");
@@ -128,30 +175,56 @@ async function initDb() {
 
 initDb().catch(err => console.log("EROARE DB:", err));
 
+// =========================
+// LOGIN
+// =========================
+
 app.post("/api/login", async (req, res) => {
-    const { email, password } = req.body;
+    try {
+        const { email, password } = req.body;
 
-    const userFull = await db.oneOrNone("SELECT * FROM users WHERE email=$1", [email]);
+        const userFull = await oneOrNone(
+            "SELECT * FROM users WHERE email=$1",
+            [email]
+        );
 
-    if (!userFull) {
-        return res.status(401).json({ message: "Email sau parolă greșită." });
-    }
-
-    const passwordOk = await bcrypt.compare(password, userFull.password);
-
-    if (!passwordOk) {
-        return res.status(401).json({ message: "Email sau parolă greșită." });
-    }
-
-    res.json({
-        user: {
-            id: userFull.id,
-            name: userFull.name,
-            email: userFull.email,
-            role: userFull.role
+        if (!userFull) {
+            return res.status(401).json({
+                message: "Email sau parolă greșită."
+            });
         }
-    });
+
+        const passwordOk = await bcrypt.compare(
+            password,
+            userFull.password
+        );
+
+        if (!passwordOk) {
+            return res.status(401).json({
+                message: "Email sau parolă greșită."
+            });
+        }
+
+        res.json({
+            user: {
+                id: userFull.id,
+                name: userFull.name,
+                email: userFull.email,
+                role: userFull.role
+            }
+        });
+    } catch (error) {
+        console.log(error);
+
+        res.status(500).json({
+            message: "Eroare server."
+        });
+    }
 });
+
+// =========================
+// REGISTER
+// =========================
 
 app.post("/api/register", async (req, res) => {
     const { name, email, password, phone } = req.body;
@@ -159,13 +232,21 @@ app.post("/api/register", async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        await db.none(`
+        await none(`
             INSERT INTO users (name, email, password, phone, role)
             VALUES ($1, $2, $3, $4, $5)
-        `, [name, email, hashedPassword, phone, "user"]);
+        `, [
+            name,
+            email,
+            hashedPassword,
+            phone,
+            "user"
+        ]);
 
-        const user = await db.one(`
-            SELECT id, name, email, role FROM users WHERE email=$1
+        const user = await one(`
+            SELECT id, name, email, role
+            FROM users
+            WHERE email=$1
         `, [email]);
 
         await transporter.sendMail({
@@ -178,416 +259,95 @@ app.post("/api/register", async (req, res) => {
             `
         });
 
-        res.json({ message: "Cont creat.", user });
+        res.json({
+            message: "Cont creat.",
+            user
+        });
+
     } catch (error) {
         console.log(error);
-        res.status(400).json({ message: "Email existent sau eroare la creare cont." });
+
+        res.status(400).json({
+            message: "Email existent sau eroare la creare cont."
+        });
     }
 });
 
+// =========================
+// PRODUCTS
+// =========================
+
 app.get("/api/products", async (req, res) => {
-    const products = await db.any("SELECT * FROM products ORDER BY id DESC");
-    res.json(products);
+    try {
+        const products = await any(`
+            SELECT *
+            FROM products
+            ORDER BY id DESC
+        `);
+
+        res.json(products);
+
+    } catch (error) {
+        console.log(error);
+
+        res.status(500).json({
+            message: "Eroare server."
+        });
+    }
 });
 
 app.post("/api/products", async (req, res) => {
-    const p = req.body;
-
-    await db.none(`
-        INSERT INTO products 
-        (name, price, oldPrice, image, description, longDescription, category, subcategory, stock, rating)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-    `, [
-        p.name,
-        p.price,
-        p.oldPrice,
-        p.image,
-        p.description,
-        p.longDescription,
-        p.category,
-        p.subcategory,
-        p.stock,
-        p.rating || 0
-    ]);
-
-    res.json({ message: "Produs adăugat" });
-});
-
-app.get("/api/products/:id", async (req, res) => {
-    const product = await db.oneOrNone("SELECT * FROM products WHERE id=$1", [req.params.id]);
-
-    if (!product) {
-        return res.status(404).json({ message: "Produs inexistent" });
-    }
-
-    res.json(product);
-});
-
-app.delete("/api/products/:id", async (req, res) => {
-    await db.none("DELETE FROM products WHERE id=$1", [req.params.id]);
-    res.json({ message: "Produs șters" });
-});
-
-app.put("/api/products/:id", async (req, res) => {
-    const p = req.body;
-
-    await db.none(`
-        UPDATE products
-        SET name=$1, price=$2, oldPrice=$3, image=$4, description=$5,
-            longDescription=$6, category=$7, subcategory=$8, stock=$9
-        WHERE id=$10
-    `, [
-        p.name,
-        p.price,
-        p.oldPrice,
-        p.image,
-        p.description,
-        p.longDescription,
-        p.category,
-        p.subcategory,
-        p.stock,
-        req.params.id
-    ]);
-
-    res.json({ message: "Produs actualizat" });
-});
-
-app.put("/api/products/:id/stock", async (req, res) => {
-    const { amount } = req.body;
-
-    if (!amount || amount <= 0) {
-        return res.status(400).json({ message: "Cantitate invalidă." });
-    }
-
-    await db.none("UPDATE products SET stock = stock + $1 WHERE id=$2", [amount, req.params.id]);
-
-    res.json({ message: "Stoc actualizat." });
-});
-
-app.put("/api/products/:id/stock/remove", async (req, res) => {
-    const { amount } = req.body;
-
-    const product = await db.oneOrNone("SELECT stock FROM products WHERE id=$1", [req.params.id]);
-
-    if (!product) {
-        return res.status(404).json({ message: "Produsul nu există." });
-    }
-
-    if (!amount || amount <= 0) {
-        return res.status(400).json({ message: "Cantitate invalidă." });
-    }
-
-    if (product.stock - amount < 0) {
-        return res.status(400).json({ message: "Nu poți avea stoc negativ." });
-    }
-
-    await db.none("UPDATE products SET stock = stock - $1 WHERE id=$2", [amount, req.params.id]);
-
-    res.json({ message: "Stoc scăzut." });
-});
-
-app.put("/api/products/:id/price", async (req, res) => {
-    const { price } = req.body;
-
-    if (!price || price <= 0) {
-        return res.status(400).json({ message: "Preț invalid." });
-    }
-
-    await db.none("UPDATE products SET price=$1 WHERE id=$2", [price, req.params.id]);
-
-    res.json({ message: "Preț actualizat." });
-});
-
-app.get("/api/favorites/:id", async (req, res) => {
-    const fav = await db.any(`
-        SELECT products.* FROM favorites
-        JOIN products ON products.id = favorites.product_id
-        WHERE favorites.user_id=$1
-    `, [req.params.id]);
-
-    res.json(fav);
-});
-
-app.post("/api/favorites", async (req, res) => {
-    const { userId, productId } = req.body;
-
-    const exists = await db.oneOrNone(`
-        SELECT * FROM favorites WHERE user_id=$1 AND product_id=$2
-    `, [userId, productId]);
-
-    if (exists) {
-        await db.none(`
-            DELETE FROM favorites WHERE user_id=$1 AND product_id=$2
-        `, [userId, productId]);
-    } else {
-        await db.none(`
-            INSERT INTO favorites (user_id, product_id)
-            VALUES ($1,$2)
-        `, [userId, productId]);
-    }
-
-    res.json({ message: "OK" });
-});
-
-app.get("/api/cart/:id", async (req, res) => {
-    const cart = await db.any(`
-        SELECT cart.id as "cartId", products.*, cart.quantity
-        FROM cart
-        JOIN products ON products.id = cart.product_id
-        WHERE cart.user_id=$1
-    `, [req.params.id]);
-
-    res.json(cart);
-});
-
-app.post("/api/cart", async (req, res) => {
-    const { userId, productId } = req.body;
-
-    const existing = await db.oneOrNone(`
-        SELECT * FROM cart WHERE user_id=$1 AND product_id=$2
-    `, [userId, productId]);
-
-    if (existing) {
-        await db.none(`
-            UPDATE cart SET quantity = quantity + 1 WHERE id=$1
-        `, [existing.id]);
-    } else {
-        await db.none(`
-            INSERT INTO cart (user_id, product_id, quantity)
-            VALUES ($1,$2,1)
-        `, [userId, productId]);
-    }
-
-    res.json({ message: "OK" });
-});
-
-app.delete("/api/cart/:cartId", async (req, res) => {
-    await db.none("DELETE FROM cart WHERE id=$1", [req.params.cartId]);
-    res.json({ message: "Produs șters din coș." });
-});
-
-app.post("/api/forgot-password", async (req, res) => {
-    const { email } = req.body;
-
-    const user = await db.oneOrNone("SELECT * FROM users WHERE email=$1", [email]);
-
-    if (!user) {
-        return res.status(404).json({ message: "Emailul nu există." });
-    }
-
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = Date.now() + 15 * 60 * 1000;
-
-    await db.none("DELETE FROM password_resets WHERE user_id=$1", [user.id]);
-
-    await db.none(`
-        INSERT INTO password_resets (user_id, token, expires_at)
-        VALUES ($1,$2,$3)
-    `, [user.id, token, expiresAt]);
-
-    const resetLink = `http://127.0.0.1:5500/reset-password.html?token=${token}`;
-
-    await transporter.sendMail({
-        from: "MegaShop <megashopbg8@gmail.com>",
-        to: email,
-        subject: "Resetare parolă MegaShop",
-        html: `
-            <h2>Resetare parolă</h2>
-            <p>Apasă pe linkul de mai jos:</p>
-            <a href="${resetLink}">${resetLink}</a>
-            <p>Expiră în 15 minute.</p>
-        `
-    });
-
-    res.json({ message: "Link trimis pe email." });
-});
-
-app.post("/api/reset-password", async (req, res) => {
-    const { token, password } = req.body;
-
-    const reset = await db.oneOrNone(`
-        SELECT * FROM password_resets WHERE token=$1
-    `, [token]);
-
-    if (!reset) {
-        return res.status(400).json({ message: "Token invalid." });
-    }
-
-    if (Date.now() > Number(reset.expires_at)) {
-        return res.status(400).json({ message: "Token expirat." });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    await db.none("UPDATE users SET password=$1 WHERE id=$2", [hashedPassword, reset.user_id]);
-    await db.none("DELETE FROM password_resets WHERE user_id=$1", [reset.user_id]);
-
-    res.json({ message: "Parola a fost resetată!" });
-});
-
-app.get("/api/products/:id/reviews", async (req, res) => {
-    const reviews = await db.any(`
-        SELECT * FROM reviews WHERE product_id=$1 ORDER BY id DESC
-    `, [req.params.id]);
-
-    res.json(reviews);
-});
-
-app.post("/api/products/:id/reviews", async (req, res) => {
-    const { userId, userName, rating, comment } = req.body;
-
-    if (!rating || !comment) {
-        return res.status(400).json({ message: "Completează toate câmpurile." });
-    }
-
-    const date = new Date().toLocaleString();
-
-    await db.none(`
-        INSERT INTO reviews (product_id, user_id, user_name, rating, comment, created_at)
-        VALUES ($1,$2,$3,$4,$5,$6)
-    `, [req.params.id, userId, userName, rating, comment, date]);
-
-    res.json({ message: "Review adăugat!" });
-});
-
-app.get("/api/products/:id/related", async (req, res) => {
-    const product = await db.oneOrNone("SELECT * FROM products WHERE id=$1", [req.params.id]);
-
-    if (!product) return res.json([]);
-
-    const related = await db.any(`
-        SELECT * FROM products
-        WHERE category=$1 AND id<>$2
-        LIMIT 4
-    `, [product.category, product.id]);
-
-    res.json(related);
-});
-
-app.post("/api/orders", async (req, res) => {
-    const o = req.body;
-
-    const cartItems = await db.any(`
-        SELECT cart.*, products.name, products.image, products.price
-        FROM cart
-        JOIN products ON products.id = cart.product_id
-        WHERE cart.user_id=$1
-    `, [o.userId]);
-
-    if (cartItems.length === 0) {
-        return res.status(400).json({ message: "Coșul este gol." });
-    }
-
-    const date = new Date().toLocaleString();
-
-    const result = await db.one(`
-        INSERT INTO orders 
-        (user_id, email, fullName, county, city, address, phone, payment, notes, total, status, created_at)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-        RETURNING id
-    `, [
-        o.userId,
-        o.email,
-        o.fullName,
-        o.county,
-        o.city,
-        o.address,
-        o.phone,
-        o.payment,
-        o.notes,
-        o.total,
-        "Nouă",
-        date
-    ]);
-
-    const orderId = result.id;
-
-    for (const item of cartItems) {
-        await db.none(`
-            INSERT INTO order_items 
-            (order_id, product_id, product_name, product_image, price, quantity)
-            VALUES ($1,$2,$3,$4,$5,$6)
+    try {
+        const p = req.body;
+
+        await none(`
+            INSERT INTO products 
+            (
+                name,
+                price,
+                oldPrice,
+                image,
+                description,
+                longDescription,
+                category,
+                subcategory,
+                stock,
+                rating
+            )
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
         `, [
-            orderId,
-            item.product_id,
-            item.name,
-            item.image,
-            item.price,
-            item.quantity
+            p.name,
+            p.price,
+            p.oldPrice,
+            p.image,
+            p.description,
+            p.longDescription,
+            p.category,
+            p.subcategory,
+            p.stock,
+            p.rating || 0
         ]);
 
-        await db.none(`
-            UPDATE products SET stock = stock - $1 WHERE id=$2
-        `, [item.quantity, item.product_id]);
-    }
+        res.json({
+            message: "Produs adăugat"
+        });
 
-    await db.none("DELETE FROM cart WHERE user_id=$1", [o.userId]);
+    } catch (error) {
+        console.log(error);
 
-    await transporter.sendMail({
-        from: "MegaShop <megashopbg8@gmail.com>",
-        to: o.email,
-        subject: "Comanda ta MegaShop a fost plasată",
-        html: `
-            <h2>Comandă plasată cu succes!</h2>
-            <p>Comanda #${orderId} a fost înregistrată.</p>
-            <p>Total: <strong>${o.total} lei</strong></p>
-            <a href="http://127.0.0.1:5500/my-orders.html?orderId=${orderId}">Vezi comanda ta</a>
-        `
-    });
-
-    res.json({ message: "Comandă plasată!", orderId });
-});
-
-app.get("/api/orders", async (req, res) => {
-    const orders = await db.any("SELECT * FROM orders ORDER BY id DESC");
-    res.json(orders);
-});
-
-app.get("/api/orders/:id", async (req, res) => {
-    const order = await db.oneOrNone("SELECT * FROM orders WHERE id=$1", [req.params.id]);
-
-    if (!order) {
-        return res.status(404).json({ message: "Comanda nu există." });
-    }
-
-    res.json(order);
-});
-
-app.get("/api/orders/:id/items", async (req, res) => {
-    const items = await db.any("SELECT * FROM order_items WHERE order_id=$1", [req.params.id]);
-    res.json(items);
-});
-
-app.put("/api/orders/:id/status", async (req, res) => {
-    const { status } = req.body;
-
-    const order = await db.oneOrNone("SELECT * FROM orders WHERE id=$1", [req.params.id]);
-
-    if (!order) {
-        return res.status(404).json({ message: "Comanda nu există." });
-    }
-
-    await db.none("UPDATE orders SET status=$1 WHERE id=$2", [status, req.params.id]);
-
-    if (status === "Predată curierului") {
-        await transporter.sendMail({
-            from: "MegaShop <megashopbg8@gmail.com>",
-            to: order.email,
-            subject: "Comanda ta a fost predată curierului",
-            html: `
-                <h2>Comanda #${order.id} a fost predată curierului 🚚</h2>
-                <p>În curând va ajunge la tine.</p>
-                <a href="http://127.0.0.1:5500/my-orders.html?orderId=${order.id}">Vezi statusul comenzii</a>
-            `
+        res.status(500).json({
+            message: "Eroare server."
         });
     }
-
-    res.json({ message: "Status actualizat." });
 });
+
+// =========================
+// START SERVER
+// =========================
 
 if (process.env.NODE_ENV !== "production") {
     const server = app.listen(PORT, () => {
-        console.log("Server pornit pe http://localhost:3000");
+        console.log(`Server pornit pe http://localhost:${PORT}`);
     });
 
     server.on("error", (error) => {
