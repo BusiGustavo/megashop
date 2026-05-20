@@ -1,162 +1,132 @@
 const nodemailer = require("nodemailer");
 const express = require("express");
 const cors = require("cors");
-const Database = require("better-sqlite3");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+const path = require("node:path");
+const fs = require("fs");
+const pgp = require("pg-promise")();
+
 const app = express();
 const PORT = process.env.PORT || 3000;
-const crypto = require("crypto");
-const fs = require("fs")
-const path = require("node:path");
+
+const db = pgp(process.env.DATABASE_URL || "postgres://postgres:parola@localhost:5432/megashop");
 
 const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-        user: "megashopbg8@gmail.com",
-        pass: "fnksvegkakljuxix"
+        user: process.env.EMAIL_USER || "megashopbg8@gmail.com",
+        pass: process.env.EMAIL_PASS || "PUNE_APP_PASSWORD_AICI"
     }
 });
 
 app.use(cors());
 app.use(express.json());
-app.use("/css", express.static(path.join(process.cwd(), "css")))
-app.use("/js", express.static(path.join(process.cwd(), "js")))
-app.use("/", express.static(path.join(process.cwd(), "html")))
-app.use((req, res, next) => {
-    console.log(`Incoming request for ${req.originalUrl}`);
-    next();
-});
-const db = new Database(path.join(process.cwd(), "magazin.db"));
 
-app.get("/", (req, res) => {
-    fs.readFile(path.join(process.cwd(), "html", "index.html"), (error, file) => {
-        console.log("here", error)
-        res.writeHead(200, {"Content-Type": "text/html"})
-        res.end(file)
-    })
-})
+app.use("/css", express.static(path.join(process.cwd(), "css")));
+app.use("/js", express.static(path.join(process.cwd(), "js")));
 
-// USERS
-db.exec(`
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    email TEXT UNIQUE,
-    password TEXT,
-    phone TEXT,
-    role TEXT
-);
-`);
+async function initDb() {
+    await db.none(`
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            name TEXT,
+            email TEXT UNIQUE,
+            password TEXT,
+            phone TEXT,
+            role TEXT
+        );
 
-// PRODUCTS
-db.exec(`
-CREATE TABLE IF NOT EXISTS products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    price REAL,
-    oldPrice REAL,
-    image TEXT,
-    description TEXT,
-    longDescription TEXT,
-    category TEXT,
-    stock INTEGER,
-    rating INTEGER
-);
-`);
+        CREATE TABLE IF NOT EXISTS products (
+            id SERIAL PRIMARY KEY,
+            name TEXT,
+            price REAL,
+            oldPrice REAL,
+            image TEXT,
+            description TEXT,
+            longDescription TEXT,
+            category TEXT,
+            subcategory TEXT,
+            stock INTEGER,
+            rating INTEGER DEFAULT 0
+        );
 
-// FAVORITES
-db.exec(`
-CREATE TABLE IF NOT EXISTS favorites (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    product_id INTEGER
-);
-`);
+        CREATE TABLE IF NOT EXISTS favorites (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER,
+            product_id INTEGER
+        );
 
-// CART
-db.exec(`
-CREATE TABLE IF NOT EXISTS cart (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    product_id INTEGER,
-    quantity INTEGER
-);
-`);
+        CREATE TABLE IF NOT EXISTS cart (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER,
+            product_id INTEGER,
+            quantity INTEGER
+        );
 
-// ORDERS
-db.exec(`
-CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    email TEXT,
-    fullName TEXT,
-    county TEXT,
-    city TEXT,
-    address TEXT,
-    phone TEXT,
-    payment TEXT,
-    notes TEXT,
-    total REAL,
-    status TEXT DEFAULT 'Nouă',
-    created_at TEXT
-);
-`);
+        CREATE TABLE IF NOT EXISTS orders (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER,
+            email TEXT,
+            fullName TEXT,
+            county TEXT,
+            city TEXT,
+            address TEXT,
+            phone TEXT,
+            payment TEXT,
+            notes TEXT,
+            total REAL,
+            status TEXT DEFAULT 'Nouă',
+            created_at TEXT
+        );
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS order_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_id INTEGER,
-    product_id INTEGER,
-    product_name TEXT,
-    product_image TEXT,
-    price REAL,
-    quantity INTEGER
-);
-`);
+        CREATE TABLE IF NOT EXISTS order_items (
+            id SERIAL PRIMARY KEY,
+            order_id INTEGER,
+            product_id INTEGER,
+            product_name TEXT,
+            product_image TEXT,
+            price REAL,
+            quantity INTEGER
+        );
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS password_resets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    token TEXT UNIQUE,
-    expires_at INTEGER
-);
-`);
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER,
+            token TEXT UNIQUE,
+            expires_at BIGINT
+        );
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS reviews (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    product_id INTEGER,
-    user_id INTEGER,
-    user_name TEXT,
-    rating INTEGER,
-    comment TEXT,
-    created_at TEXT
-);
-`);
+        CREATE TABLE IF NOT EXISTS reviews (
+            id SERIAL PRIMARY KEY,
+            product_id INTEGER,
+            user_id INTEGER,
+            user_name TEXT,
+            rating INTEGER,
+            comment TEXT,
+            created_at TEXT
+        );
+    `);
 
+    const admin = await db.oneOrNone("SELECT * FROM users WHERE role='admin'");
 
-// ADMIN DEFAULT
-const adminPasswordHash = bcrypt.hashSync("1", 10);
+    if (!admin) {
+        const hash = await bcrypt.hash("1", 10);
+        await db.none(`
+            INSERT INTO users (name, email, password, phone, role)
+            VALUES ($1, $2, $3, $4, $5)
+        `, ["Administrator", "1", hash, "0700000000", "admin"]);
+    }
 
-// db.prepare("DELETE FROM users WHERE role = 'admin'").run();
-//
-// db.prepare(`
-// INSERT INTO users (name, email, password, phone, role)
-// VALUES (?, ?, ?, ?, ?)
-// `).run("Administrator", "1", adminPasswordHash, "0700000000", "admin");
+    console.log("Baza de date PostgreSQL este pregătită.");
+}
 
-console.log("ADMIN CREAT CU 1 / 1");
+initDb().catch(err => console.log("EROARE DB:", err));
 
-
-
-// LOGIN
 app.post("/api/login", async (req, res) => {
     const { email, password } = req.body;
 
-    const userFull = db.prepare(`
-        SELECT * FROM users WHERE email = ?
-    `).get(email);
+    const userFull = await db.oneOrNone("SELECT * FROM users WHERE email=$1", [email]);
 
     if (!userFull) {
         return res.status(401).json({ message: "Email sau parolă greșită." });
@@ -168,30 +138,61 @@ app.post("/api/login", async (req, res) => {
         return res.status(401).json({ message: "Email sau parolă greșită." });
     }
 
-    const user = {
-        id: userFull.id,
-        name: userFull.name,
-        email: userFull.email,
-        role: userFull.role
-    };
-
-    res.json({ user });
+    res.json({
+        user: {
+            id: userFull.id,
+            name: userFull.name,
+            email: userFull.email,
+            role: userFull.role
+        }
+    });
 });
 
-// PRODUCTS
-app.get("/api/products", (req, res) => {
-    const products = db.prepare("SELECT * FROM products").all();
+app.post("/api/register", async (req, res) => {
+    const { name, email, password, phone } = req.body;
+
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        await db.none(`
+            INSERT INTO users (name, email, password, phone, role)
+            VALUES ($1, $2, $3, $4, $5)
+        `, [name, email, hashedPassword, phone, "user"]);
+
+        const user = await db.one(`
+            SELECT id, name, email, role FROM users WHERE email=$1
+        `, [email]);
+
+        await transporter.sendMail({
+            from: "MegaShop <megashopbg8@gmail.com>",
+            to: email,
+            subject: "Cont creat MegaShop",
+            html: `
+                <h2>Bine ai venit, ${name}!</h2>
+                <p>Contul tău MegaShop a fost creat cu succes.</p>
+            `
+        });
+
+        res.json({ message: "Cont creat.", user });
+    } catch (error) {
+        console.log(error);
+        res.status(400).json({ message: "Email existent sau eroare la creare cont." });
+    }
+});
+
+app.get("/api/products", async (req, res) => {
+    const products = await db.any("SELECT * FROM products ORDER BY id DESC");
     res.json(products);
 });
 
-// ADD PRODUCT
-app.post("/api/products", (req, res) => {
+app.post("/api/products", async (req, res) => {
     const p = req.body;
 
-    db.prepare(`
-        INSERT INTO products (name, price, oldPrice, image, description, longDescription, category, stock, rating)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    await db.none(`
+        INSERT INTO products 
+        (name, price, oldPrice, image, description, longDescription, category, subcategory, stock, rating)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    `, [
         p.name,
         p.price,
         p.oldPrice,
@@ -199,84 +200,171 @@ app.post("/api/products", (req, res) => {
         p.description,
         p.longDescription,
         p.category,
+        p.subcategory,
         p.stock,
-        p.rating
-    );
+        p.rating || 0
+    ]);
 
     res.json({ message: "Produs adăugat" });
 });
 
-// FAVORITES
-app.get("/api/favorites/:id", (req, res) => {
-    const fav = db.prepare(`
+app.get("/api/products/:id", async (req, res) => {
+    const product = await db.oneOrNone("SELECT * FROM products WHERE id=$1", [req.params.id]);
+
+    if (!product) {
+        return res.status(404).json({ message: "Produs inexistent" });
+    }
+
+    res.json(product);
+});
+
+app.delete("/api/products/:id", async (req, res) => {
+    await db.none("DELETE FROM products WHERE id=$1", [req.params.id]);
+    res.json({ message: "Produs șters" });
+});
+
+app.put("/api/products/:id", async (req, res) => {
+    const p = req.body;
+
+    await db.none(`
+        UPDATE products
+        SET name=$1, price=$2, oldPrice=$3, image=$4, description=$5,
+            longDescription=$6, category=$7, subcategory=$8, stock=$9
+        WHERE id=$10
+    `, [
+        p.name,
+        p.price,
+        p.oldPrice,
+        p.image,
+        p.description,
+        p.longDescription,
+        p.category,
+        p.subcategory,
+        p.stock,
+        req.params.id
+    ]);
+
+    res.json({ message: "Produs actualizat" });
+});
+
+app.put("/api/products/:id/stock", async (req, res) => {
+    const { amount } = req.body;
+
+    if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Cantitate invalidă." });
+    }
+
+    await db.none("UPDATE products SET stock = stock + $1 WHERE id=$2", [amount, req.params.id]);
+
+    res.json({ message: "Stoc actualizat." });
+});
+
+app.put("/api/products/:id/stock/remove", async (req, res) => {
+    const { amount } = req.body;
+
+    const product = await db.oneOrNone("SELECT stock FROM products WHERE id=$1", [req.params.id]);
+
+    if (!product) {
+        return res.status(404).json({ message: "Produsul nu există." });
+    }
+
+    if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Cantitate invalidă." });
+    }
+
+    if (product.stock - amount < 0) {
+        return res.status(400).json({ message: "Nu poți avea stoc negativ." });
+    }
+
+    await db.none("UPDATE products SET stock = stock - $1 WHERE id=$2", [amount, req.params.id]);
+
+    res.json({ message: "Stoc scăzut." });
+});
+
+app.put("/api/products/:id/price", async (req, res) => {
+    const { price } = req.body;
+
+    if (!price || price <= 0) {
+        return res.status(400).json({ message: "Preț invalid." });
+    }
+
+    await db.none("UPDATE products SET price=$1 WHERE id=$2", [price, req.params.id]);
+
+    res.json({ message: "Preț actualizat." });
+});
+
+app.get("/api/favorites/:id", async (req, res) => {
+    const fav = await db.any(`
         SELECT products.* FROM favorites
         JOIN products ON products.id = favorites.product_id
-        WHERE favorites.user_id = ?
-    `).all(req.params.id);
+        WHERE favorites.user_id=$1
+    `, [req.params.id]);
 
     res.json(fav);
 });
 
-app.post("/api/favorites", (req, res) => {
+app.post("/api/favorites", async (req, res) => {
     const { userId, productId } = req.body;
 
-    const exists = db.prepare(`
-        SELECT * FROM favorites WHERE user_id=? AND product_id=?
-    `).get(userId, productId);
+    const exists = await db.oneOrNone(`
+        SELECT * FROM favorites WHERE user_id=$1 AND product_id=$2
+    `, [userId, productId]);
 
     if (exists) {
-        db.prepare(`
-            DELETE FROM favorites WHERE user_id=? AND product_id=?
-        `).run(userId, productId);
+        await db.none(`
+            DELETE FROM favorites WHERE user_id=$1 AND product_id=$2
+        `, [userId, productId]);
     } else {
-        db.prepare(`
+        await db.none(`
             INSERT INTO favorites (user_id, product_id)
-            VALUES (?, ?)
-        `).run(userId, productId);
+            VALUES ($1,$2)
+        `, [userId, productId]);
     }
 
     res.json({ message: "OK" });
 });
 
-// CART
-app.get("/api/cart/:id", (req, res) => {
-    const cart = db.prepare(`
-        SELECT cart.id as cartId, products.*, cart.quantity
+app.get("/api/cart/:id", async (req, res) => {
+    const cart = await db.any(`
+        SELECT cart.id as "cartId", products.*, cart.quantity
         FROM cart
         JOIN products ON products.id = cart.product_id
-        WHERE cart.user_id = ?
-    `).all(req.params.id);
+        WHERE cart.user_id=$1
+    `, [req.params.id]);
 
     res.json(cart);
 });
 
-app.post("/api/cart", (req, res) => {
+app.post("/api/cart", async (req, res) => {
     const { userId, productId } = req.body;
 
-    const existing = db.prepare(`
-        SELECT * FROM cart WHERE user_id=? AND product_id=?
-    `).get(userId, productId);
+    const existing = await db.oneOrNone(`
+        SELECT * FROM cart WHERE user_id=$1 AND product_id=$2
+    `, [userId, productId]);
 
     if (existing) {
-        db.prepare(`
-            UPDATE cart SET quantity = quantity + 1 WHERE id=?
-        `).run(existing.id);
+        await db.none(`
+            UPDATE cart SET quantity = quantity + 1 WHERE id=$1
+        `, [existing.id]);
     } else {
-        db.prepare(`
+        await db.none(`
             INSERT INTO cart (user_id, product_id, quantity)
-            VALUES (?, ?, 1)
-        `).run(userId, productId);
+            VALUES ($1,$2,1)
+        `, [userId, productId]);
     }
 
     res.json({ message: "OK" });
 });
 
+app.delete("/api/cart/:cartId", async (req, res) => {
+    await db.none("DELETE FROM cart WHERE id=$1", [req.params.cartId]);
+    res.json({ message: "Produs șters din coș." });
+});
 
-// RESET PASSWORD
 app.post("/api/forgot-password", async (req, res) => {
     const { email } = req.body;
 
-    const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+    const user = await db.oneOrNone("SELECT * FROM users WHERE email=$1", [email]);
 
     if (!user) {
         return res.status(404).json({ message: "Emailul nu există." });
@@ -285,12 +373,12 @@ app.post("/api/forgot-password", async (req, res) => {
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = Date.now() + 15 * 60 * 1000;
 
-    db.prepare("DELETE FROM password_resets WHERE user_id = ?").run(user.id);
+    await db.none("DELETE FROM password_resets WHERE user_id=$1", [user.id]);
 
-    db.prepare(`
+    await db.none(`
         INSERT INTO password_resets (user_id, token, expires_at)
-        VALUES (?, ?, ?)
-    `).run(user.id, token, expiresAt);
+        VALUES ($1,$2,$3)
+    `, [user.id, token, expiresAt]);
 
     const resetLink = `http://127.0.0.1:5500/reset-password.html?token=${token}`;
 
@@ -309,94 +397,38 @@ app.post("/api/forgot-password", async (req, res) => {
     res.json({ message: "Link trimis pe email." });
 });
 
-
-// REGISTER
-app.post("/api/register", async (req, res) => {
-    const { name, email, password, phone } = req.body;
-
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        db.prepare(`
-            INSERT INTO users (name, email, password, phone, role)
-            VALUES (?, ?, ?, ?, ?)
-        `).run(name, email, hashedPassword, phone, "user");
-
-        const user = db.prepare(`
-            SELECT id, name, email, role FROM users WHERE email = ?
-        `).get(email);
-
-        await transporter.sendMail({
-            from: "MegaShop <megashopbg8@gmail.com>",
-            to: email,
-            subject: "Cont creat MegaShop",
-            html: `
-                <h2>Bine ai venit, ${name}!</h2>
-                <p>Contul tău MegaShop a fost creat cu succes.</p>
-            `
-        });
-
-        res.json({ message: "Cont creat.", user });
-
-    } catch (error) {
-        console.log(error);
-        res.status(400).json({ message: "Email existent sau eroare la creare cont." });
-    }
-});
-
-
-
 app.post("/api/reset-password", async (req, res) => {
     const { token, password } = req.body;
 
-    const reset = db.prepare(`
-        SELECT * FROM password_resets WHERE token = ?
-    `).get(token);
+    const reset = await db.oneOrNone(`
+        SELECT * FROM password_resets WHERE token=$1
+    `, [token]);
 
     if (!reset) {
         return res.status(400).json({ message: "Token invalid." });
     }
 
-    if (Date.now() > reset.expires_at) {
+    if (Date.now() > Number(reset.expires_at)) {
         return res.status(400).json({ message: "Token expirat." });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    db.prepare(`
-        UPDATE users SET password = ? WHERE id = ?
-    `).run(hashedPassword, reset.user_id);
-
-    db.prepare(`
-        DELETE FROM password_resets WHERE user_id = ?
-    `).run(reset.user_id);
+    await db.none("UPDATE users SET password=$1 WHERE id=$2", [hashedPassword, reset.user_id]);
+    await db.none("DELETE FROM password_resets WHERE user_id=$1", [reset.user_id]);
 
     res.json({ message: "Parola a fost resetată!" });
 });
 
-
-app.get("/api/products/:id", (req, res) => {
-    const product = db.prepare(`
-        SELECT * FROM products WHERE id = ?
-    `).get(req.params.id);
-
-    if (!product) {
-        return res.status(404).json({ message: "Produs inexistent" });
-    }
-
-    res.json(product);
-});
-
-app.get("/api/products/:id/reviews", (req, res) => {
-    const reviews = db.prepare(`
-        SELECT * FROM reviews WHERE product_id = ?
-        ORDER BY id DESC
-    `).all(req.params.id);
+app.get("/api/products/:id/reviews", async (req, res) => {
+    const reviews = await db.any(`
+        SELECT * FROM reviews WHERE product_id=$1 ORDER BY id DESC
+    `, [req.params.id]);
 
     res.json(reviews);
 });
 
-app.post("/api/products/:id/reviews", (req, res) => {
+app.post("/api/products/:id/reviews", async (req, res) => {
     const { userId, userName, rating, comment } = req.body;
 
     if (!rating || !comment) {
@@ -405,66 +437,37 @@ app.post("/api/products/:id/reviews", (req, res) => {
 
     const date = new Date().toLocaleString();
 
-    db.prepare(`
+    await db.none(`
         INSERT INTO reviews (product_id, user_id, user_name, rating, comment, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `).run(req.params.id, userId, userName, rating, comment, date);
+        VALUES ($1,$2,$3,$4,$5,$6)
+    `, [req.params.id, userId, userName, rating, comment, date]);
 
     res.json({ message: "Review adăugat!" });
 });
-app.get("/api/products/:id/related", (req, res) => {
-    const product = db.prepare(`
-        SELECT * FROM products WHERE id = ?
-    `).get(req.params.id);
+
+app.get("/api/products/:id/related", async (req, res) => {
+    const product = await db.oneOrNone("SELECT * FROM products WHERE id=$1", [req.params.id]);
 
     if (!product) return res.json([]);
 
-    const related = db.prepare(`
-        SELECT * FROM products 
-        WHERE category = ? AND id != ?
+    const related = await db.any(`
+        SELECT * FROM products
+        WHERE category=$1 AND id<>$2
         LIMIT 4
-    `).all(product.category, product.id);
+    `, [product.category, product.id]);
 
     res.json(related);
 });
-app.delete("/api/products/:id", (req, res) => {
-    db.prepare("DELETE FROM products WHERE id = ?").run(req.params.id);
-    res.json({ message: "Produs șters" });
-});
-
-
-app.put("/api/products/:id", (req, res) => {
-    const p = req.body;
-
-    db.prepare(`
-        UPDATE products
-        SET name=?, price=?, oldPrice=?, image=?, description=?, longDescription=?, category=?, stock=?
-        WHERE id=?
-    `).run(
-        p.name,
-        p.price,
-        p.oldPrice,
-        p.image,
-        p.description,
-        p.longDescription,
-        p.category,
-        p.stock,
-        req.params.id
-    );
-
-    res.json({ message: "Produs actualizat" });
-});
-
 
 app.post("/api/orders", async (req, res) => {
     const o = req.body;
 
-    const cartItems = db.prepare(`
+    const cartItems = await db.any(`
         SELECT cart.*, products.name, products.image, products.price
         FROM cart
         JOIN products ON products.id = cart.product_id
-        WHERE cart.user_id = ?
-    `).all(o.userId);
+        WHERE cart.user_id=$1
+    `, [o.userId]);
 
     if (cartItems.length === 0) {
         return res.status(400).json({ message: "Coșul este gol." });
@@ -472,11 +475,12 @@ app.post("/api/orders", async (req, res) => {
 
     const date = new Date().toLocaleString();
 
-    const result = db.prepare(`
+    const result = await db.one(`
         INSERT INTO orders 
         (user_id, email, fullName, county, city, address, phone, payment, notes, total, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        RETURNING id
+    `, [
         o.userId,
         o.email,
         o.fullName,
@@ -489,30 +493,30 @@ app.post("/api/orders", async (req, res) => {
         o.total,
         "Nouă",
         date
-    );
+    ]);
 
-    const orderId = result.lastInsertRowid;
+    const orderId = result.id;
 
-    cartItems.forEach(item => {
-        db.prepare(`
+    for (const item of cartItems) {
+        await db.none(`
             INSERT INTO order_items 
             (order_id, product_id, product_name, product_image, price, quantity)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `).run(
+            VALUES ($1,$2,$3,$4,$5,$6)
+        `, [
             orderId,
             item.product_id,
             item.name,
             item.image,
             item.price,
             item.quantity
-        );
+        ]);
 
-        db.prepare(`
-            UPDATE products SET stock = stock - ? WHERE id = ?
-        `).run(item.quantity, item.product_id);
-    });
+        await db.none(`
+            UPDATE products SET stock = stock - $1 WHERE id=$2
+        `, [item.quantity, item.product_id]);
+    }
 
-    db.prepare("DELETE FROM cart WHERE user_id = ?").run(o.userId);
+    await db.none("DELETE FROM cart WHERE user_id=$1", [o.userId]);
 
     await transporter.sendMail({
         from: "MegaShop <megashopbg8@gmail.com>",
@@ -522,41 +526,43 @@ app.post("/api/orders", async (req, res) => {
             <h2>Comandă plasată cu succes!</h2>
             <p>Comanda #${orderId} a fost înregistrată.</p>
             <p>Total: <strong>${o.total} lei</strong></p>
-            <a href="http://127.0.0.1:5500/my-orders.html">Vezi comanda ta</a>
+            <a href="http://127.0.0.1:5500/my-orders.html?orderId=${orderId}">Vezi comanda ta</a>
         `
     });
 
     res.json({ message: "Comandă plasată!", orderId });
 });
 
-app.get("/api/orders", (req, res) => {
-    const orders = db.prepare(`
-        SELECT * FROM orders ORDER BY id DESC
-    `).all();
-
+app.get("/api/orders", async (req, res) => {
+    const orders = await db.any("SELECT * FROM orders ORDER BY id DESC");
     res.json(orders);
 });
 
-app.get("/api/orders/:id/items", (req, res) => {
-    const items = db.prepare(`
-        SELECT * FROM order_items WHERE order_id = ?
-    `).all(req.params.id);
+app.get("/api/orders/:id", async (req, res) => {
+    const order = await db.oneOrNone("SELECT * FROM orders WHERE id=$1", [req.params.id]);
 
+    if (!order) {
+        return res.status(404).json({ message: "Comanda nu există." });
+    }
+
+    res.json(order);
+});
+
+app.get("/api/orders/:id/items", async (req, res) => {
+    const items = await db.any("SELECT * FROM order_items WHERE order_id=$1", [req.params.id]);
     res.json(items);
 });
 
 app.put("/api/orders/:id/status", async (req, res) => {
     const { status } = req.body;
 
-    const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(req.params.id);
+    const order = await db.oneOrNone("SELECT * FROM orders WHERE id=$1", [req.params.id]);
 
     if (!order) {
         return res.status(404).json({ message: "Comanda nu există." });
     }
 
-    db.prepare(`
-        UPDATE orders SET status = ? WHERE id = ?
-    `).run(status, req.params.id);
+    await db.none("UPDATE orders SET status=$1 WHERE id=$2", [status, req.params.id]);
 
     if (status === "Predată curierului") {
         await transporter.sendMail({
@@ -566,7 +572,7 @@ app.put("/api/orders/:id/status", async (req, res) => {
             html: `
                 <h2>Comanda #${order.id} a fost predată curierului 🚚</h2>
                 <p>În curând va ajunge la tine.</p>
-                <a href="http://127.0.0.1:5500/my-orders.html">Vezi statusul comenzii</a>
+                <a href="http://127.0.0.1:5500/my-orders.html?orderId=${order.id}">Vezi statusul comenzii</a>
             `
         });
     }
@@ -574,66 +580,14 @@ app.put("/api/orders/:id/status", async (req, res) => {
     res.json({ message: "Status actualizat." });
 });
 
-app.put("/api/products/:id/stock", (req, res) => {
-    const { amount } = req.body;
+if (process.env.NODE_ENV !== "production") {
+    const server = app.listen(PORT, () => {
+        console.log("Server pornit pe http://localhost:3000");
+    });
 
-    if (!amount || amount <= 0) {
-        return res.status(400).json({ message: "Cantitate invalidă." });
-    }
+    server.on("error", (error) => {
+        console.log("EROARE SERVER:", error);
+    });
+}
 
-    db.prepare(`
-        UPDATE products SET stock = stock + ? WHERE id = ?
-    `).run(amount, req.params.id);
-
-    res.json({ message: "Stoc actualizat." });
-});
-app.put("/api/products/:id/stock/remove", (req, res) => {
-    const { amount } = req.body;
-
-    const product = db.prepare(`
-        SELECT stock FROM products WHERE id = ?
-    `).get(req.params.id);
-
-    if (!product) {
-        return res.status(404).json({ message: "Produsul nu există." });
-    }
-
-    if (!amount || amount <= 0) {
-        return res.status(400).json({ message: "Cantitate invalidă." });
-    }
-
-    if (product.stock - amount < 0) {
-        return res.status(400).json({ message: "Nu poți avea stoc negativ." });
-    }
-
-    db.prepare(`
-        UPDATE products SET stock = stock - ? WHERE id = ?
-    `).run(amount, req.params.id);
-
-    res.json({ message: "Stoc scăzut." });
-});
-app.put("/api/products/:id/price", (req, res) => {
-    const { price } = req.body;
-
-    if (!price || price <= 0) {
-        return res.status(400).json({ message: "Preț invalid." });
-    }
-
-    db.prepare(`
-        UPDATE products SET price = ? WHERE id = ?
-    `).run(price, req.params.id);
-
-    res.json({ message: "Preț actualizat." });
-});
-app.delete("/api/cart/:cartId", (req, res) => {
-    db.prepare("DELETE FROM cart WHERE id = ?").run(req.params.cartId);
-
-    res.json({ message: "Produs șters din coș." });
-});
-const server = app.listen(PORT, () => {
-    console.log("Server pornit pe http://localhost:3000");
-  });
-  
-  server.on("error", (error) => {
-    console.log("EROARE SERVER:", error);
-  });
+module.exports = app;
