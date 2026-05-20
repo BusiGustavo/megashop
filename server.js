@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 3000;
 // NEON DB
 // =========================
 
-const sql = neon(process.env.DATABASE_URL);
+const sql = neon(process.env.STORAGE_DATABASE_URL);
 
 // =========================
 // MAIL
