@@ -30,6 +30,7 @@ app.use(cors());
 app.use(express.json());
 app.use("/css", express.static(path.join(process.cwd(), "css")))
 app.use("/js", express.static(path.join(process.cwd(), "js")))
+app.use("/", express.static(path.join(process.cwd(), "content")))
 app.use("/", express.static(path.join(process.cwd(), "html")))
 app.use((req, res, next) => {
     console.log(`Incoming request for ${req.originalUrl}`);
