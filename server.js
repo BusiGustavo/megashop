@@ -5,17 +5,21 @@ const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const path = require("node:path");
 const fs = require("fs");
-const { Pool } = require("pg");
+
+const { neon } = require("@neondatabase/serverless");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const db = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false,
-    },
-});
+// =========================
+// NEON DB
+// =========================
+
+const sql = neon(process.env.DATABASE_URL);
+
+// =========================
+// MAIL
+// =========================
 
 const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -27,52 +31,61 @@ const transporter = nodemailer.createTransport({
 
 app.use(cors());
 app.use(express.json());
-app.use("/css", express.static(path.join(process.cwd(), "css")))
-app.use("/js", express.static(path.join(process.cwd(), "js")))
-app.use("/", express.static(path.join(process.cwd(), "content")))
-app.use("/", express.static(path.join(process.cwd(), "html")))
+
+app.use("/css", express.static(path.join(process.cwd(), "css")));
+app.use("/js", express.static(path.join(process.cwd(), "js")));
+app.use("/", express.static(path.join(process.cwd(), "content")));
+app.use("/", express.static(path.join(process.cwd(), "html")));
+
 app.use((req, res, next) => {
     console.log(`Incoming request for ${req.originalUrl}`);
     next();
 });
 
 app.get("/", (req, res) => {
-    fs.readFile(path.join(process.cwd(), "html", "index.html"), (error, file) => {
-        console.log("here", error)
-        res.writeHead(200, {"Content-Type": "text/html"})
-        res.end(file)
-    })
-})
+    fs.readFile(
+        path.join(process.cwd(), "html", "index.html"),
+        (error, file) => {
+            console.log("here", error);
+
+            res.writeHead(200, {
+                "Content-Type": "text/html"
+            });
+
+            res.end(file);
+        }
+    );
+});
+
 // =========================
-// PG HELPERS
+// DB HELPERS
 // =========================
 
 async function query(text, params = []) {
-    return db.query(text, params);
+    return sql.query(text, params);
 }
 
 async function one(text, params = []) {
-    const result = await db.query(text, params);
+    const rows = await sql.query(text, params);
 
-    if (result.rows.length === 0) {
+    if (rows.length === 0) {
         throw new Error("No rows found");
     }
 
-    return result.rows[0];
+    return rows[0];
 }
 
 async function oneOrNone(text, params = []) {
-    const result = await db.query(text, params);
-    return result.rows[0] || null;
+    const rows = await sql.query(text, params);
+    return rows[0] || null;
 }
 
 async function any(text, params = []) {
-    const result = await db.query(text, params);
-    return result.rows;
+    return sql.query(text, params);
 }
 
 async function none(text, params = []) {
-    await db.query(text, params);
+    await sql.query(text, params);
 }
 
 // =========================
@@ -82,87 +95,87 @@ async function none(text, params = []) {
 async function initDb() {
     await none(`
         CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            name TEXT,
-            email TEXT UNIQUE,
-            password TEXT,
-            phone TEXT,
-            role TEXT
+                                             id SERIAL PRIMARY KEY,
+                                             name TEXT,
+                                             email TEXT UNIQUE,
+                                             password TEXT,
+                                             phone TEXT,
+                                             role TEXT
         );
 
         CREATE TABLE IF NOT EXISTS products (
-            id SERIAL PRIMARY KEY,
-            name TEXT,
-            price REAL,
-            oldPrice REAL,
-            image TEXT,
-            description TEXT,
-            longDescription TEXT,
-            category TEXT,
-            subcategory TEXT,
-            stock INTEGER,
-            rating INTEGER DEFAULT 0
+                                                id SERIAL PRIMARY KEY,
+                                                name TEXT,
+                                                price REAL,
+                                                oldPrice REAL,
+                                                image TEXT,
+                                                description TEXT,
+                                                longDescription TEXT,
+                                                category TEXT,
+                                                subcategory TEXT,
+                                                stock INTEGER,
+                                                rating INTEGER DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS favorites (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER,
-            product_id INTEGER
+                                                 id SERIAL PRIMARY KEY,
+                                                 user_id INTEGER,
+                                                 product_id INTEGER
         );
 
         CREATE TABLE IF NOT EXISTS cart (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER,
-            product_id INTEGER,
-            quantity INTEGER
+                                            id SERIAL PRIMARY KEY,
+                                            user_id INTEGER,
+                                            product_id INTEGER,
+                                            quantity INTEGER
         );
 
         CREATE TABLE IF NOT EXISTS orders (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER,
-            email TEXT,
-            fullName TEXT,
-            county TEXT,
-            city TEXT,
-            address TEXT,
-            phone TEXT,
-            payment TEXT,
-            notes TEXT,
-            total REAL,
-            status TEXT DEFAULT 'Nouă',
-            created_at TEXT
+                                              id SERIAL PRIMARY KEY,
+                                              user_id INTEGER,
+                                              email TEXT,
+                                              fullName TEXT,
+                                              county TEXT,
+                                              city TEXT,
+                                              address TEXT,
+                                              phone TEXT,
+                                              payment TEXT,
+                                              notes TEXT,
+                                              total REAL,
+                                              status TEXT DEFAULT 'Nouă',
+                                              created_at TEXT
         );
 
         CREATE TABLE IF NOT EXISTS order_items (
-            id SERIAL PRIMARY KEY,
-            order_id INTEGER,
-            product_id INTEGER,
-            product_name TEXT,
-            product_image TEXT,
-            price REAL,
-            quantity INTEGER
+                                                   id SERIAL PRIMARY KEY,
+                                                   order_id INTEGER,
+                                                   product_id INTEGER,
+                                                   product_name TEXT,
+                                                   product_image TEXT,
+                                                   price REAL,
+                                                   quantity INTEGER
         );
 
         CREATE TABLE IF NOT EXISTS password_resets (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER,
-            token TEXT UNIQUE,
-            expires_at BIGINT
+                                                       id SERIAL PRIMARY KEY,
+                                                       user_id INTEGER,
+                                                       token TEXT UNIQUE,
+                                                       expires_at BIGINT
         );
 
         CREATE TABLE IF NOT EXISTS reviews (
-            id SERIAL PRIMARY KEY,
-            product_id INTEGER,
-            user_id INTEGER,
-            user_name TEXT,
-            rating INTEGER,
-            comment TEXT,
-            created_at TEXT
+                                               id SERIAL PRIMARY KEY,
+                                               product_id INTEGER,
+                                               user_id INTEGER,
+                                               user_name TEXT,
+                                               rating INTEGER,
+                                               comment TEXT,
+                                               created_at TEXT
         );
     `);
 
     const admin = await oneOrNone(
-        "SELECT * FROM users WHERE role=$1",
+        "SELECT * FROM users WHERE role = $1",
         ["admin"]
     );
 
@@ -170,7 +183,14 @@ async function initDb() {
         const hash = await bcrypt.hash("1", 10);
 
         await none(`
-            INSERT INTO users (name, email, password, phone, role)
+            INSERT INTO users
+            (
+                name,
+                email,
+                password,
+                phone,
+                role
+            )
             VALUES ($1, $2, $3, $4, $5)
         `, [
             "Administrator",
@@ -184,7 +204,9 @@ async function initDb() {
     console.log("Baza de date PostgreSQL este pregătită.");
 }
 
-initDb().catch(err => console.log("EROARE DB:", err));
+initDb().catch(err => {
+    console.log("EROARE DB:", err);
+});
 
 // =========================
 // LOGIN
@@ -195,7 +217,7 @@ app.post("/api/login", async (req, res) => {
         const { email, password } = req.body;
 
         const userFull = await oneOrNone(
-            "SELECT * FROM users WHERE email=$1",
+            "SELECT * FROM users WHERE email = $1",
             [email]
         );
 
@@ -224,6 +246,7 @@ app.post("/api/login", async (req, res) => {
                 role: userFull.role
             }
         });
+
     } catch (error) {
         console.log(error);
 
@@ -244,7 +267,14 @@ app.post("/api/register", async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         await none(`
-            INSERT INTO users (name, email, password, phone, role)
+            INSERT INTO users
+            (
+                name,
+                email,
+                password,
+                phone,
+                role
+            )
             VALUES ($1, $2, $3, $4, $5)
         `, [
             name,
@@ -255,9 +285,13 @@ app.post("/api/register", async (req, res) => {
         ]);
 
         const user = await one(`
-            SELECT id, name, email, role
+            SELECT
+                id,
+                name,
+                email,
+                role
             FROM users
-            WHERE email=$1
+            WHERE email = $1
         `, [email]);
 
         await transporter.sendMail({
@@ -312,7 +346,7 @@ app.post("/api/products", async (req, res) => {
         const p = req.body;
 
         await none(`
-            INSERT INTO products 
+            INSERT INTO products
             (
                 name,
                 price,
@@ -325,7 +359,11 @@ app.post("/api/products", async (req, res) => {
                 stock,
                 rating
             )
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            VALUES
+                (
+                    $1,$2,$3,$4,$5,
+                    $6,$7,$8,$9,$10
+                )
         `, [
             p.name,
             p.price,
