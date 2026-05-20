@@ -156,7 +156,7 @@ async function forgotPassword() {
 
     console.log("TRIMIT REQUEST...");
 
-    const res = await fetch("http://localhost:3000/api/forgot-password", {
+    const res = await fetch("/api/forgot-password", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
