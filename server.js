@@ -6,7 +6,6 @@ const crypto = require("crypto");
 const path = require("node:path");
 const fs = require("fs");
 const { Pool } = require("pg");
-const Database = require("better-sqlite3");
 
 const app = express();
 const PORT = process.env.PORT || 3000;

@@ -17,6 +17,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "nodemailer": "^8.0.7",
+    "pg": "^8.21.0",
     "pg-promise": "^12.6.2",
     "process": "^0.11.10"
   },
