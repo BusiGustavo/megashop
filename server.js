@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 3000;
 // NEON DB
 // =========================
 
-const sql = neon(process.env.STORAGE_DATABASE_URL);
+const sql = neon("postgresql://neondb_owner:npg_LhkUKmMSW7e8@ep-lively-union-aq4vfppe-pooler.c-8.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require");
 
 // =========================
 // MAIL
