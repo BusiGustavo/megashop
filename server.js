@@ -10,7 +10,12 @@ const pgp = require("pg-promise")();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const db = pgp(process.env.DATABASE_URL || "postgres://postgres:parola@localhost:5432/megashop");
+const db = pgp(process.env.DATABASE_URL,  {
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false,
+    },
+});
 
 const transporter = nodemailer.createTransport({
     service: "gmail",
